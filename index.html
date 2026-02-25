@@ -196,19 +196,6 @@
           <span id="modeStatusText" class="text-[10px] font-medium" style="color:rgba(255,255,255,.25)">keyword matching</span>
         </div>
 
-        <!-- ── API key panel — visible in Deep mode only ── -->
-        <div id="apiKeyPanel" class="hidden px-2 pb-2">
-          <div class="flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all" style="background:rgba(10,15,30,.6);border:1px solid rgba(168,85,247,.2)">
-            <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:rgba(168,85,247,.6)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
-            </svg>
-            <input id="apiKeyInput" type="password"
-              placeholder="Paste Anthropic API key  (sk-ant-...)"
-              class="flex-1 bg-transparent text-xs font-mono text-white/70 placeholder-white/20 outline-none min-w-0" />
-            <button id="apiKeyClear" class="text-white/20 hover:text-white/50 transition-colors text-sm leading-none flex-shrink-0" title="Clear key">✕</button>
-          </div>
-          <p class="text-[10px] px-1 mt-1.5" style="color:rgba(255,255,255,.18)">Stored in memory only · never persisted to disk · sent only to api.anthropic.com</p>
-        </div>
 
         <div class="flex flex-wrap gap-2 px-2 pb-2 pt-1">
           <span class="text-xs text-white/30 font-medium self-center pr-1">Try:</span>
@@ -1047,7 +1034,7 @@ const radarChart = new Chart(radarCtx, {
         titleColor:'rgba(255,255,255,.9)', bodyColor:'rgba(255,255,255,.55)',
         padding:10, cornerRadius:10,
       },
-    },
+    },1
     elements: { line:{ tension:0.1 } },
   },
 });
@@ -1180,6 +1167,9 @@ function analyseTask(text, precomputedType, usedClaude = false) {
 // ─────────────────────────────────────────────────────────────
 // DEEP ANALYSIS — CLAUDE API
 // ─────────────────────────────────────────────────────────────
+// Replace with env variable before open-sourcing
+const ANTHROPIC_API_KEY = '';
+
 let deepMode = false;
 
 const VALID_TASK_TYPES = new Set(['coding','writing','analysis','multimodal','speed','budget','default']);
@@ -1231,13 +1221,10 @@ async function triggerAnalysis() {
   let taskType;
   let usedClaude = false;
 
-  if (deepMode) {
+  if (deepMode && ANTHROPIC_API_KEY) {
     label.textContent = 'Asking Claude…';
-    const key = document.getElementById('apiKeyInput').value.trim();
-    if (key) {
-      const result = await classifyWithClaude(text, key);
-      if (result) { taskType = result; usedClaude = true; }
-    }
+    const result = await classifyWithClaude(text, ANTHROPIC_API_KEY);
+    if (result) { taskType = result; usedClaude = true; }
     if (!taskType) taskType = detectTaskType(text); // silent fallback
   } else {
     label.textContent = 'Analysing…';
@@ -1256,9 +1243,8 @@ async function triggerAnalysis() {
 // ─────────────────────────────────────────────────────────────
 function setMode(isDep) {
   deepMode = isDep;
-  const qBtn    = document.getElementById('modeQuick');
-  const dBtn    = document.getElementById('modeDeep');
-  const panel   = document.getElementById('apiKeyPanel');
+  const qBtn     = document.getElementById('modeQuick');
+  const dBtn     = document.getElementById('modeDeep');
   const statusEl = document.getElementById('modeStatusText');
 
   qBtn.style.background  = isDep ? 'transparent'              : 'rgba(168,85,247,.28)';
@@ -1268,16 +1254,12 @@ function setMode(isDep) {
   dBtn.style.color       = isDep ? 'rgba(255,255,255,.9)'     : 'rgba(255,255,255,.38)';
   dBtn.style.boxShadow   = isDep ? '0 0 10px rgba(168,85,247,.2)' : 'none';
 
-  panel.classList.toggle('hidden', !isDep);
   if (statusEl) statusEl.textContent = isDep ? 'powered by Claude' : 'keyword matching';
   if (statusEl) statusEl.style.color = isDep ? 'rgba(168,85,247,.7)' : 'rgba(255,255,255,.25)';
 }
 
 document.getElementById('modeQuick').addEventListener('click', () => setMode(false));
 document.getElementById('modeDeep').addEventListener('click',  () => setMode(true));
-document.getElementById('apiKeyClear').addEventListener('click', () => {
-  document.getElementById('apiKeyInput').value = '';
-});
 
 // ─────────────────────────────────────────────────────────────
 // EVENT LISTENERS
