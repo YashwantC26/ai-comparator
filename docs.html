@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Docs — AI Model Comparator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            space: { 950:'#05080f', 900:'#0a0f1e', 800:'#0d1530', 700:'#111d42', 600:'#1a2755' },
+            purple: { glow:'#a855f7', soft:'#c084fc', dim:'#7c3aed' },
+            cyan:   { glow:'#22d3ee', soft:'#67e8f9', dim:'#0891b2' },
+          },
+          fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
+          boxShadow: {
+            'glow-purple':'0 0 20px rgba(168,85,247,0.35), 0 0 60px rgba(168,85,247,0.12)',
+            'glow-cyan':  '0 0 20px rgba(34,211,238,0.35), 0 0 60px rgba(34,211,238,0.12)',
+            'glow-sm':    '0 0 10px rgba(168,85,247,0.25)',
+            'card':       '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:#0a0f1e; }
+    ::-webkit-scrollbar-thumb { background:#7c3aed; border-radius:3px; }
+
+    body { background-color:#0a0f1e; scroll-behavior:smooth; }
+
+    .stars {
+      position:fixed; inset:0; pointer-events:none; z-index:0;
+      background-image:
+        radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,.55) 0%,transparent 100%),
+        radial-gradient(1px 1px at 25% 60%, rgba(255,255,255,.40) 0%,transparent 100%),
+        radial-gradient(1px 1px at 40%  8%, rgba(255,255,255,.60) 0%,transparent 100%),
+        radial-gradient(1px 1px at 55% 75%, rgba(255,255,255,.35) 0%,transparent 100%),
+        radial-gradient(1px 1px at 70% 30%, rgba(255,255,255,.50) 0%,transparent 100%),
+        radial-gradient(1px 1px at 85% 55%, rgba(255,255,255,.45) 0%,transparent 100%),
+        radial-gradient(1px 1px at 92% 20%, rgba(255,255,255,.55) 0%,transparent 100%),
+        radial-gradient(1.5px 1.5px at 18% 85%, rgba(200,180,255,.50) 0%,transparent 100%),
+        radial-gradient(1.5px 1.5px at 63% 45%, rgba(180,230,255,.45) 0%,transparent 100%),
+        radial-gradient(1px 1px at 78% 90%, rgba(255,255,255,.40) 0%,transparent 100%),
+        radial-gradient(1px 1px at  5% 42%, rgba(255,255,255,.35) 0%,transparent 100%),
+        radial-gradient(1px 1px at 48% 92%, rgba(255,255,255,.45) 0%,transparent 100%);
+    }
+
+    .text-gradient {
+      background: linear-gradient(135deg,#a855f7,#22d3ee);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+
+    .gradient-border { position:relative; }
+    .gradient-border::before {
+      content:''; position:absolute; inset:0; border-radius:inherit; padding:1px;
+      background:linear-gradient(135deg,rgba(168,85,247,.6),rgba(34,211,238,.6));
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;
+    }
+
+    .card-hover { transition:transform .25s ease, box-shadow .25s ease; }
+    .card-hover:hover {
+      transform:translateY(-3px);
+      box-shadow:0 8px 40px rgba(168,85,247,.25), 0 4px 16px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07);
+    }
+
+    @keyframes pulse-glow {
+      0%,100% { opacity:1; box-shadow:0 0 6px rgba(34,211,238,.8); }
+      50%      { opacity:.5; box-shadow:0 0 12px rgba(34,211,238,.4); }
+    }
+    .pulse-dot { animation:pulse-glow 2s ease-in-out infinite; }
+
+    .divider {
+      height:1px;
+      background:linear-gradient(90deg,transparent,rgba(168,85,247,.4),rgba(34,211,238,.4),transparent);
+    }
+
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(12px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .fade-in { animation:fadeIn .5s ease forwards; }
+
+    /* subnav active */
+    .subnav-link { transition:color .15s, border-color .15s; }
+    .subnav-link.active { color:rgba(255,255,255,.9); border-bottom-color:rgba(168,85,247,.8); }
+
+    /* weight cell highlight */
+    .w-high { color:rgb(192,132,252); font-weight:700; }
+    .w-mid  { color:rgba(255,255,255,.65); }
+    .w-low  { color:rgba(255,255,255,.28); }
+
+    /* roadmap badge */
+    .badge-planned    { background:rgba(255,255,255,.06);  color:rgba(255,255,255,.4);  border:1px solid rgba(255,255,255,.1); }
+    .badge-progress   { background:rgba(34,211,238,.12);   color:rgb(103,232,249);      border:1px solid rgba(34,211,238,.3); }
+    .badge-done       { background:rgba(52,211,153,.12);   color:rgb(110,231,183);      border:1px solid rgba(52,211,153,.3); }
+  </style>
+</head>
+<body class="min-h-screen text-white font-sans antialiased relative overflow-x-hidden">
+
+  <div class="stars"></div>
+  <div class="fixed inset-0 pointer-events-none z-0"
+       style="background:radial-gradient(ellipse 80% 45% at 50% -5%,rgba(168,85,247,.15),transparent)"></div>
+
+  <!-- ═══════════════════════════════════════ HEADER -->
+  <header class="relative z-10 border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center"
+             style="background:linear-gradient(135deg,#a855f7,#22d3ee);box-shadow:0 0 18px rgba(168,85,247,.5);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold tracking-tight text-gradient">AI Model Comparator</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-7 text-sm text-white/50 font-medium">
+        <a href="index.html#compare-section" class="hover:text-white/90 transition-colors">Compare</a>
+        <a href="index.html#benchmarks-section" class="hover:text-white/90 transition-colors">Benchmarks</a>
+        <a href="index.html#leaderboard-section" class="hover:text-white/90 transition-colors">Leaderboard</a>
+        <a href="docs.html" class="text-white/90 transition-colors">Docs</a>
+      </nav>
+      <a href="https://github.com/YashwantC26/ai-comparator" target="_blank" rel="noopener"
+         class="flex items-center gap-2 text-xs text-white/40 font-medium bg-white/5 border border-white/10 rounded-full px-3 py-1.5 hover:text-white/70 hover:bg-white/8 transition-all">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════ PAGE HERO -->
+  <section class="relative z-10 pt-16 pb-10 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-purple-glow/80 mb-5 bg-purple-glow/10 border border-purple-glow/20 rounded-full px-4 py-1.5">
+        <span class="w-1 h-1 rounded-full bg-purple-400 inline-block"></span>
+        Documentation
+      </div>
+      <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-4">
+        How <span class="text-gradient">AI Model Comparator</span> works
+      </h1>
+      <p class="text-white/45 text-lg font-light leading-relaxed max-w-2xl">
+        Everything about the scoring methodology, data sources, and what's coming next.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ STICKY SUBNAV -->
+  <div class="sticky top-0 z-20 border-b border-white/5" style="background:rgba(10,15,30,.92);backdrop-filter:blur(16px)">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="flex items-center gap-1 overflow-x-auto" style="scrollbar-width:none">
+        <a href="#about"       class="subnav-link shrink-0 text-sm font-medium text-white/45 hover:text-white/80 px-4 py-3.5 border-b-2 border-transparent">About</a>
+        <a href="#methodology" class="subnav-link shrink-0 text-sm font-medium text-white/45 hover:text-white/80 px-4 py-3.5 border-b-2 border-transparent">Methodology</a>
+        <a href="#data-sources" class="subnav-link shrink-0 text-sm font-medium text-white/45 hover:text-white/80 px-4 py-3.5 border-b-2 border-transparent">Data Sources</a>
+        <a href="#roadmap"     class="subnav-link shrink-0 text-sm font-medium text-white/45 hover:text-white/80 px-4 py-3.5 border-b-2 border-transparent">Roadmap</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ MAIN -->
+  <main class="relative z-10 max-w-4xl mx-auto px-6 py-14 space-y-20">
+
+    <!-- ── About ── -->
+    <section id="about" class="fade-in">
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+             style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)">📖</div>
+        <h2 class="text-2xl font-bold tracking-tight">About</h2>
+      </div>
+
+      <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card p-8 space-y-6">
+        <div>
+          <h3 class="text-base font-semibold text-white/90 mb-2">What it is</h3>
+          <p class="text-white/55 text-sm leading-relaxed">
+            AI Model Comparator is a single-page tool that helps developers and product teams pick the right large language model for any task. Describe your use case — in plain English — and the tool instantly ranks all 10 tracked frontier models by quality, speed, cost, and capability fit, then surfaces the top three with a plain-language explanation of why each is a good match.
+          </p>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <h3 class="text-base font-semibold text-white/90 mb-2">Why it was built</h3>
+          <p class="text-white/55 text-sm leading-relaxed">
+            The frontier AI landscape moves fast. In the span of a year, the number of production-grade models has exploded — each with different pricing tiers, context windows, vision support, and performance characteristics across domains. Comparing them means cross-referencing scattered pricing pages, reading provider-specific benchmark reports, and making educated guesses about what "quality" actually means for your workload.
+          </p>
+          <p class="text-white/55 text-sm leading-relaxed mt-3">
+            This tool puts everything in one place: a single query, instant ranked results, a capability radar chart, an academic benchmark grid, real-world usage cost projections, and environmental impact estimates — all without sending data to any server.
+          </p>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <h3 class="text-base font-semibold text-white/90 mb-3">Models tracked</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <!-- model pills -->
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">🤖</span>
+              <div><div class="text-xs font-semibold text-white/80">GPT-4o</div><div class="text-[10px] text-white/35">OpenAI</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">⚡</span>
+              <div><div class="text-xs font-semibold text-white/80">GPT-4o mini</div><div class="text-[10px] text-white/35">OpenAI</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">🦾</span>
+              <div><div class="text-xs font-semibold text-white/80">Claude Sonnet 4.6</div><div class="text-[10px] text-white/35">Anthropic</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">🌸</span>
+              <div><div class="text-xs font-semibold text-white/80">Claude Haiku 3.5</div><div class="text-[10px] text-white/35">Anthropic</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">🌐</span>
+              <div><div class="text-xs font-semibold text-white/80">Gemini 1.5 Pro</div><div class="text-[10px] text-white/35">Google DeepMind</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">🔥</span>
+              <div><div class="text-xs font-semibold text-white/80">Gemini 2.0 Flash</div><div class="text-[10px] text-white/35">Google DeepMind</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">🦙</span>
+              <div><div class="text-xs font-semibold text-white/80">Llama 3.3 70B</div><div class="text-[10px] text-white/35">Meta via Groq</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">💨</span>
+              <div><div class="text-xs font-semibold text-white/80">Mistral Large 2</div><div class="text-[10px] text-white/35">Mistral AI</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">🚀</span>
+              <div><div class="text-xs font-semibold text-white/80">Grok 2</div><div class="text-[10px] text-white/35">xAI</div></div>
+            </div>
+            <div class="flex items-center gap-2.5 bg-white/4 border border-white/8 rounded-xl px-3.5 py-2.5">
+              <span class="text-base">📡</span>
+              <div><div class="text-xs font-semibold text-white/80">Command R+</div><div class="text-[10px] text-white/35">Cohere</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Methodology ── -->
+    <section id="methodology">
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+             style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25)">⚙️</div>
+        <h2 class="text-2xl font-bold tracking-tight">Methodology</h2>
+      </div>
+
+      <div class="space-y-6">
+
+        <!-- Radar dimensions -->
+        <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card p-7">
+          <h3 class="text-base font-semibold text-white/90 mb-1">Radar dimensions</h3>
+          <p class="text-white/45 text-sm mb-5">Each model is scored 0–100 across six capability dimensions, sourced from benchmark results, provider documentation, and independent evaluations.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex items-start gap-3 p-3.5 rounded-xl bg-white/3 border border-white/6">
+              <span class="text-lg mt-0.5">🎯</span>
+              <div><div class="text-xs font-semibold text-white/80 mb-0.5">Reasoning</div><div class="text-[11px] text-white/40 leading-relaxed">Multi-step logic, math, and complex problem-solving based on MMLU, GPQA, and reasoning benchmarks.</div></div>
+            </div>
+            <div class="flex items-start gap-3 p-3.5 rounded-xl bg-white/3 border border-white/6">
+              <span class="text-lg mt-0.5">✍️</span>
+              <div><div class="text-xs font-semibold text-white/80 mb-0.5">Writing</div><div class="text-[11px] text-white/40 leading-relaxed">Prose quality, instruction following, creativity, and structured output based on human preference evaluations.</div></div>
+            </div>
+            <div class="flex items-start gap-3 p-3.5 rounded-xl bg-white/3 border border-white/6">
+              <span class="text-lg mt-0.5">💻</span>
+              <div><div class="text-xs font-semibold text-white/80 mb-0.5">Coding</div><div class="text-[11px] text-white/40 leading-relaxed">Code generation, debugging, and refactoring quality sourced from HumanEval, SWE-bench, and provider evals.</div></div>
+            </div>
+            <div class="flex items-start gap-3 p-3.5 rounded-xl bg-white/3 border border-white/6">
+              <span class="text-lg mt-0.5">🖼️</span>
+              <div><div class="text-xs font-semibold text-white/80 mb-0.5">Multimodal</div><div class="text-[11px] text-white/40 leading-relaxed">Vision and audio understanding capability. Text-only models score 5 (floor) on this dimension.</div></div>
+            </div>
+            <div class="flex items-start gap-3 p-3.5 rounded-xl bg-white/3 border border-white/6">
+              <span class="text-lg mt-0.5">💰</span>
+              <div><div class="text-xs font-semibold text-white/80 mb-0.5">Cost Efficiency</div><div class="text-[11px] text-white/40 leading-relaxed">Inverted price score: cheaper models score higher. Calibrated against the cheapest and most expensive tracked models.</div></div>
+            </div>
+            <div class="flex items-start gap-3 p-3.5 rounded-xl bg-white/3 border border-white/6">
+              <span class="text-lg mt-0.5">⚡</span>
+              <div><div class="text-xs font-semibold text-white/80 mb-0.5">Latency</div><div class="text-[11px] text-white/40 leading-relaxed">Tokens per second throughput and time-to-first-token, sourced from published benchmarks and inference provider specs.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task classification -->
+        <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card p-7">
+          <h3 class="text-base font-semibold text-white/90 mb-1">Task classification</h3>
+          <p class="text-white/45 text-sm mb-4">Your input is matched against six keyword sets. The category with the most keyword hits wins; ties and empty inputs fall back to <span class="text-white/70 font-medium">General Purpose</span>.</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <div class="rounded-lg px-3.5 py-2.5 text-xs font-medium" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2);color:rgb(103,232,249)">💻 Code Generation</div>
+            <div class="rounded-lg px-3.5 py-2.5 text-xs font-medium" style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);color:rgb(192,132,252)">✍️ Writing &amp; Content</div>
+            <div class="rounded-lg px-3.5 py-2.5 text-xs font-medium" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);color:rgb(165,180,252)">🔍 Analysis &amp; Research</div>
+            <div class="rounded-lg px-3.5 py-2.5 text-xs font-medium" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);color:rgb(253,224,71)">🖼️ Multimodal &amp; Vision</div>
+            <div class="rounded-lg px-3.5 py-2.5 text-xs font-medium" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2);color:rgb(103,232,249)">⚡ Speed-Critical</div>
+            <div class="rounded-lg px-3.5 py-2.5 text-xs font-medium" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);color:rgb(110,231,183)">💰 Budget-Conscious</div>
+          </div>
+        </div>
+
+        <!-- Weights table -->
+        <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card overflow-hidden">
+          <div class="p-7 pb-4">
+            <h3 class="text-base font-semibold text-white/90 mb-1">Scoring weights per task type</h3>
+            <p class="text-white/45 text-sm">Each task type shifts the importance of the six dimensions. The final score is the dot product of a model's radar values and the task weight vector. <span class="text-purple-soft/80">Highlighted</span> cells are the dominant weight for that task.</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="border-b border-white/6" style="background:rgba(168,85,247,.06)">
+                  <th class="text-left px-6 py-3 font-semibold tracking-widest uppercase text-white/30 whitespace-nowrap">Task type</th>
+                  <th class="text-center px-4 py-3 font-semibold tracking-widest uppercase text-white/30">Reasoning</th>
+                  <th class="text-center px-4 py-3 font-semibold tracking-widest uppercase text-white/30">Writing</th>
+                  <th class="text-center px-4 py-3 font-semibold tracking-widest uppercase text-white/30">Coding</th>
+                  <th class="text-center px-4 py-3 font-semibold tracking-widest uppercase text-white/30">Multimodal</th>
+                  <th class="text-center px-4 py-3 font-semibold tracking-widest uppercase text-white/30">Cost Eff.</th>
+                  <th class="text-center px-4 py-3 font-semibold tracking-widest uppercase text-white/30">Latency</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/4">
+                <tr class="hover:bg-white/3 transition-colors">
+                  <td class="px-6 py-3 font-medium text-white/70 whitespace-nowrap">💻 Code Generation</td>
+                  <td class="px-4 py-3 text-center w-mid">0.18</td>
+                  <td class="px-4 py-3 text-center w-low">0.05</td>
+                  <td class="px-4 py-3 text-center w-high">0.50</td>
+                  <td class="px-4 py-3 text-center w-low">0.04</td>
+                  <td class="px-4 py-3 text-center w-low">0.10</td>
+                  <td class="px-4 py-3 text-center w-low">0.13</td>
+                </tr>
+                <tr class="hover:bg-white/3 transition-colors">
+                  <td class="px-6 py-3 font-medium text-white/70 whitespace-nowrap">✍️ Writing &amp; Content</td>
+                  <td class="px-4 py-3 text-center w-low">0.15</td>
+                  <td class="px-4 py-3 text-center w-high">0.50</td>
+                  <td class="px-4 py-3 text-center w-low">0.05</td>
+                  <td class="px-4 py-3 text-center w-low">0.04</td>
+                  <td class="px-4 py-3 text-center w-low">0.10</td>
+                  <td class="px-4 py-3 text-center w-low">0.16</td>
+                </tr>
+                <tr class="hover:bg-white/3 transition-colors">
+                  <td class="px-6 py-3 font-medium text-white/70 whitespace-nowrap">🔍 Analysis &amp; Research</td>
+                  <td class="px-4 py-3 text-center w-high">0.48</td>
+                  <td class="px-4 py-3 text-center w-low">0.14</td>
+                  <td class="px-4 py-3 text-center w-low">0.10</td>
+                  <td class="px-4 py-3 text-center w-low">0.06</td>
+                  <td class="px-4 py-3 text-center w-low">0.06</td>
+                  <td class="px-4 py-3 text-center w-low">0.16</td>
+                </tr>
+                <tr class="hover:bg-white/3 transition-colors">
+                  <td class="px-6 py-3 font-medium text-white/70 whitespace-nowrap">🖼️ Multimodal &amp; Vision</td>
+                  <td class="px-4 py-3 text-center w-low">0.10</td>
+                  <td class="px-4 py-3 text-center w-low">0.09</td>
+                  <td class="px-4 py-3 text-center w-low">0.06</td>
+                  <td class="px-4 py-3 text-center w-high">0.58</td>
+                  <td class="px-4 py-3 text-center w-low">0.06</td>
+                  <td class="px-4 py-3 text-center w-low">0.11</td>
+                </tr>
+                <tr class="hover:bg-white/3 transition-colors">
+                  <td class="px-6 py-3 font-medium text-white/70 whitespace-nowrap">⚡ Speed-Critical</td>
+                  <td class="px-4 py-3 text-center w-low">0.06</td>
+                  <td class="px-4 py-3 text-center w-low">0.04</td>
+                  <td class="px-4 py-3 text-center w-low">0.05</td>
+                  <td class="px-4 py-3 text-center w-low">0.04</td>
+                  <td class="px-4 py-3 text-center w-mid">0.28</td>
+                  <td class="px-4 py-3 text-center w-high">0.53</td>
+                </tr>
+                <tr class="hover:bg-white/3 transition-colors">
+                  <td class="px-6 py-3 font-medium text-white/70 whitespace-nowrap">💰 Budget-Conscious</td>
+                  <td class="px-4 py-3 text-center w-low">0.11</td>
+                  <td class="px-4 py-3 text-center w-low">0.09</td>
+                  <td class="px-4 py-3 text-center w-low">0.09</td>
+                  <td class="px-4 py-3 text-center w-low">0.04</td>
+                  <td class="px-4 py-3 text-center w-high">0.58</td>
+                  <td class="px-4 py-3 text-center w-low">0.09</td>
+                </tr>
+                <tr class="hover:bg-white/3 transition-colors" style="background:rgba(168,85,247,.03)">
+                  <td class="px-6 py-3 font-medium text-white/70 whitespace-nowrap">🧠 General Purpose</td>
+                  <td class="px-4 py-3 text-center w-mid">0.26</td>
+                  <td class="px-4 py-3 text-center w-mid">0.20</td>
+                  <td class="px-4 py-3 text-center w-mid">0.20</td>
+                  <td class="px-4 py-3 text-center w-low">0.10</td>
+                  <td class="px-4 py-3 text-center w-low">0.10</td>
+                  <td class="px-4 py-3 text-center w-low">0.14</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="border-t border-white/6 px-6 py-3 text-xs text-white/25">All weights sum to 1.0 per task type. Scores are the dot product of a model's radar vector and the task weight vector.</div>
+        </div>
+
+        <!-- Energy & carbon -->
+        <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card p-7">
+          <h3 class="text-base font-semibold text-white/90 mb-1">Energy &amp; carbon estimates</h3>
+          <p class="text-white/45 text-sm leading-relaxed mb-4">
+            Energy figures (kWh per 1M output tokens) and carbon intensity (gCO₂ per 1M output tokens) are derived from a combination of provider sustainability reports, cloud region carbon intensity data, and published AI energy research. All values are approximations — the underlying compute varies significantly by workload, hardware, and inference infrastructure.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <div class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);color:rgb(110,231,183)">
+              <span>✓</span> <span><strong>Verified</strong> — Google Gemini models (Google Environmental Report 2024)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5)">
+              <span>~</span> <span><strong>Estimated</strong> — all other models (modelled from cloud compute data)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Data Sources ── -->
+    <section id="data-sources">
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+             style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3)">🔗</div>
+        <h2 class="text-2xl font-bold tracking-tight">Data Sources</h2>
+      </div>
+
+      <div class="space-y-5">
+
+        <!-- Benchmarks -->
+        <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card p-7">
+          <h3 class="text-sm font-semibold tracking-widest uppercase text-white/35 mb-5">Academic Benchmarks</h3>
+          <div class="space-y-3">
+            <a href="https://arxiv.org/abs/2009.03300" target="_blank" rel="noopener"
+               class="card-hover flex items-start gap-4 p-4 rounded-xl bg-white/3 border border-white/7 hover:border-purple-glow/30 transition-colors group">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:rgb(192,132,252)">M</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-white/80 group-hover:text-white/95 transition-colors mb-0.5">MMLU — Massive Multitask Language Understanding</div>
+                <div class="text-xs text-white/35 mb-1">Hendrycks et al., 2020 · arXiv:2009.03300</div>
+                <div class="text-xs text-white/45 leading-relaxed">57-subject multiple-choice test covering STEM, humanities, social sciences, and more. Reported as 5-shot accuracy (%).</div>
+              </div>
+              <svg class="w-4 h-4 text-white/20 group-hover:text-white/50 flex-shrink-0 mt-0.5 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://arxiv.org/abs/2107.03374" target="_blank" rel="noopener"
+               class="card-hover flex items-start gap-4 p-4 rounded-xl bg-white/3 border border-white/7 hover:border-cyan-glow/30 transition-colors group">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold" style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);color:rgb(103,232,249)">H</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-white/80 group-hover:text-white/95 transition-colors mb-0.5">HumanEval — Evaluating LLMs Trained on Code</div>
+                <div class="text-xs text-white/35 mb-1">Chen et al., 2021 · arXiv:2107.03374</div>
+                <div class="text-xs text-white/45 leading-relaxed">164 handwritten Python programming problems. Reported as pass@1 — the fraction of problems solved correctly on the first attempt.</div>
+              </div>
+              <svg class="w-4 h-4 text-white/20 group-hover:text-white/50 flex-shrink-0 mt-0.5 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://arxiv.org/abs/2311.12022" target="_blank" rel="noopener"
+               class="card-hover flex items-start gap-4 p-4 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold" style="background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:rgb(110,231,183)">G</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-white/80 group-hover:text-white/95 transition-colors mb-0.5">GPQA — Graduate-Level Google-Proof Q&amp;A</div>
+                <div class="text-xs text-white/35 mb-1">Rein et al., 2023 · arXiv:2311.12022</div>
+                <div class="text-xs text-white/45 leading-relaxed">Expert-written multiple-choice questions in biology, chemistry, and physics that are "Google-proof." Reported as Diamond subset accuracy (%).</div>
+              </div>
+              <svg class="w-4 h-4 text-white/20 group-hover:text-white/50 flex-shrink-0 mt-0.5 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Provider pricing -->
+        <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card p-7">
+          <h3 class="text-sm font-semibold tracking-widest uppercase text-white/35 mb-5">Provider Pricing &amp; Documentation</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">🤖</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">OpenAI Models &amp; Pricing</div><div class="text-[10px] text-white/30 mt-0.5">platform.openai.com</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://www.anthropic.com/pricing" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">🦾</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">Anthropic Pricing</div><div class="text-[10px] text-white/30 mt-0.5">anthropic.com</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">🌐</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">Google AI Pricing</div><div class="text-[10px] text-white/30 mt-0.5">ai.google.dev</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://groq.com/pricing" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">🦙</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">Groq Pricing (Llama)</div><div class="text-[10px] text-white/30 mt-0.5">groq.com</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://mistral.ai/technology/" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">💨</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">Mistral AI Models</div><div class="text-[10px] text-white/30 mt-0.5">mistral.ai</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://x.ai/api" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">🚀</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">xAI Grok API</div><div class="text-[10px] text-white/30 mt-0.5">x.ai</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://cohere.com/pricing" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">📡</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">Cohere Pricing</div><div class="text-[10px] text-white/30 mt-0.5">cohere.com</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <a href="https://sustainability.google/reports/" target="_blank" rel="noopener"
+               class="card-hover flex items-center gap-3 p-3.5 rounded-xl bg-white/3 border border-white/7 hover:border-white/20 transition-colors group">
+              <span class="text-lg">🌿</span>
+              <div class="flex-1"><div class="text-xs font-semibold text-white/75 group-hover:text-white/90 transition-colors">Google Environmental Report</div><div class="text-[10px] text-white/30 mt-0.5">sustainability.google</div></div>
+              <svg class="w-3.5 h-3.5 text-white/20 group-hover:text-white/45 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Roadmap ── -->
+    <section id="roadmap">
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+             style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.28)">🗺️</div>
+        <h2 class="text-2xl font-bold tracking-tight">Roadmap</h2>
+      </div>
+
+      <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card divide-y divide-white/5">
+
+        <!-- In Progress -->
+        <div class="p-6 flex items-start gap-4">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 mt-0.5" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2)">🔌</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+              <span class="text-sm font-semibold text-white/88">Claude API Integration</span>
+              <span class="badge-progress text-[10px] font-bold tracking-widest uppercase rounded-full px-2.5 py-0.5">In Progress</span>
+            </div>
+            <p class="text-xs text-white/45 leading-relaxed">Live model calls via the Anthropic SDK — type a prompt and receive streamed responses directly in the comparator, so you can evaluate real output quality alongside the scoring data.</p>
+          </div>
+        </div>
+
+        <div class="p-6 flex items-start gap-4">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 mt-0.5" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.25)">⚖️</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+              <span class="text-sm font-semibold text-white/88">Side-by-Side Output Comparison</span>
+              <span class="badge-planned text-[10px] font-bold tracking-widest uppercase rounded-full px-2.5 py-0.5">Planned</span>
+            </div>
+            <p class="text-xs text-white/45 leading-relaxed">Send the same prompt to multiple models simultaneously and view their responses in a side-by-side panel. Highlights differences in tone, length, accuracy, and formatting.</p>
+          </div>
+        </div>
+
+        <div class="p-6 flex items-start gap-4">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 mt-0.5" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.22)">🔗</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+              <span class="text-sm font-semibold text-white/88">Shareable Results URLs</span>
+              <span class="badge-planned text-[10px] font-bold tracking-widest uppercase rounded-full px-2.5 py-0.5">Planned</span>
+            </div>
+            <p class="text-xs text-white/45 leading-relaxed">Encode your task description, active filters, and selected models into a query-param URL so you can share or bookmark a specific comparison view with teammates.</p>
+          </div>
+        </div>
+
+        <div class="p-6 flex items-start gap-4">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 mt-0.5" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.22)">✨</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+              <span class="text-sm font-semibold text-white/88">Expanded Model Coverage</span>
+              <span class="badge-planned text-[10px] font-bold tracking-widest uppercase rounded-full px-2.5 py-0.5">Planned</span>
+            </div>
+            <p class="text-xs text-white/45 leading-relaxed">Adding GPT-4.5, Claude Opus 4, Gemini Ultra 2, DeepSeek V3, and Qwen 2.5. Data updated within 48 hours of each major release.</p>
+          </div>
+        </div>
+
+        <div class="p-6 flex items-start gap-4">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 mt-0.5" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.25)">⏱️</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+              <span class="text-sm font-semibold text-white/88">Real Latency Benchmarks</span>
+              <span class="badge-planned text-[10px] font-bold tracking-widest uppercase rounded-full px-2.5 py-0.5">Planned</span>
+            </div>
+            <p class="text-xs text-white/45 leading-relaxed">Replace estimated latency scores with live p50/p95 TTFT and tokens-per-second measurements sampled directly from each provider API on a regular cadence.</p>
+          </div>
+        </div>
+
+        <div class="p-6 flex items-start gap-4">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 mt-0.5" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2)">👤</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+              <span class="text-sm font-semibold text-white/88">User Accounts &amp; Saved Comparisons</span>
+              <span class="badge-planned text-[10px] font-bold tracking-widest uppercase rounded-full px-2.5 py-0.5">Planned</span>
+            </div>
+            <p class="text-xs text-white/45 leading-relaxed">Sign in to save and name comparison sessions, track how model rankings shift over time as new versions release, and export results as CSV or JSON.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CTA -->
+      <div class="mt-6 gradient-border rounded-2xl bg-space-800/40 backdrop-blur-sm p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div class="text-sm font-semibold text-white/80 mb-1">Have a feature idea or data correction?</div>
+          <div class="text-xs text-white/40">Open an issue or PR on GitHub — contributions welcome.</div>
+        </div>
+        <a href="https://github.com/YashwantC26/ai-comparator" target="_blank" rel="noopener"
+           class="shrink-0 flex items-center gap-2 text-sm font-semibold rounded-xl px-5 py-2.5 transition-all hover:scale-[1.02] active:scale-[.98]"
+           style="background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(34,211,238,.25));border:1px solid rgba(168,85,247,.35);color:rgba(255,255,255,.85)">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════ FOOTER -->
+  <footer class="relative z-10 border-t border-white/5 mt-8">
+    <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2 text-xs text-white/25">
+        <span class="text-gradient font-semibold text-sm">AI Model Comparator</span>
+        <span class="text-white/15">·</span>
+        <span>Data sourced from public benchmarks &amp; provider docs</span>
+      </div>
+      <div class="flex items-center gap-5 text-xs text-white/25">
+        <a href="#" class="hover:text-white/50 transition-colors">Privacy</a>
+        <a href="#" class="hover:text-white/50 transition-colors">Terms</a>
+        <a href="#" class="hover:text-white/50 transition-colors">API</a>
+        <a href="https://github.com/YashwantC26/ai-comparator" target="_blank" rel="noopener" class="hover:text-white/50 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+<script>
+  // Highlight active subnav link on scroll
+  const sections  = ['about','methodology','data-sources','roadmap'].map(id => document.getElementById(id));
+  const navLinks  = document.querySelectorAll('.subnav-link');
+
+  function updateSubnav() {
+    let current = 0;
+    sections.forEach((s, i) => {
+      if (s && s.getBoundingClientRect().top <= 120) current = i;
+    });
+    navLinks.forEach((l, i) => l.classList.toggle('active', i === current));
+  }
+
+  window.addEventListener('scroll', updateSubnav, { passive: true });
+  updateSubnav();
+</script>
+
+</body>
+</html>
