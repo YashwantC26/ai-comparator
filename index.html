@@ -1165,41 +1165,25 @@ function analyseTask(text, precomputedType, usedClaude = false) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// DEEP ANALYSIS — CLAUDE API
+// DEEP ANALYSIS — proxied via /api/classify serverless function
 // ─────────────────────────────────────────────────────────────
-// Replace with env variable before open-sourcing
-const ANTHROPIC_API_KEY = '';
-
 let deepMode = false;
 
 const VALID_TASK_TYPES = new Set(['coding','writing','analysis','multimodal','speed','budget','default']);
 
-async function classifyWithClaude(text, key) {
-  if (!text.trim() || !key) return null;
+async function classifyWithClaude(text) {
+  if (!text.trim()) return null;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/classify', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 10,
-        messages: [{
-          role: 'user',
-          content: `Classify this task into exactly one of these categories: coding, writing, analysis, multimodal, speed, budget, default.\n\nTask: "${text.slice(0, 500)}"\n\nReply with only the single category word, nothing else.`,
-        }],
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task: text.slice(0, 500) }),
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const raw = (data.content?.[0]?.text ?? '').trim().toLowerCase().replace(/[^a-z]/g, '');
-    return VALID_TASK_TYPES.has(raw) ? raw : null;
+    return VALID_TASK_TYPES.has(data.taskType) ? data.taskType : null;
   } catch {
-    return null; // silent fallback
+    return null; // silent fallback to keyword matching
   }
 }
 
@@ -1221,9 +1205,9 @@ async function triggerAnalysis() {
   let taskType;
   let usedClaude = false;
 
-  if (deepMode && ANTHROPIC_API_KEY) {
+  if (deepMode) {
     label.textContent = 'Asking Claude…';
-    const result = await classifyWithClaude(text, ANTHROPIC_API_KEY);
+    const result = await classifyWithClaude(text);
     if (result) { taskType = result; usedClaude = true; }
     if (!taskType) taskType = detectTaskType(text); // silent fallback
   } else {
