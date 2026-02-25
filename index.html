@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Model Comparator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            space: { 950:'#05080f', 900:'#0a0f1e', 800:'#0d1530', 700:'#111d42', 600:'#1a2755' },
+            purple: { glow:'#a855f7', soft:'#c084fc', dim:'#7c3aed' },
+            cyan:   { glow:'#22d3ee', soft:'#67e8f9', dim:'#0891b2' },
+          },
+          fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
+          boxShadow: {
+            'glow-purple':'0 0 20px rgba(168,85,247,0.35), 0 0 60px rgba(168,85,247,0.12)',
+            'glow-cyan':  '0 0 20px rgba(34,211,238,0.35), 0 0 60px rgba(34,211,238,0.12)',
+            'glow-sm':    '0 0 10px rgba(168,85,247,0.25)',
+            'card':       '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:#0a0f1e; }
+    ::-webkit-scrollbar-thumb { background:#7c3aed; border-radius:3px; }
+
+    body { background-color:#0a0f1e; scroll-behavior:smooth; }
+
+    .stars {
+      position:fixed; inset:0; pointer-events:none; z-index:0;
+      background-image:
+        radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,.55) 0%,transparent 100%),
+        radial-gradient(1px 1px at 25% 60%, rgba(255,255,255,.40) 0%,transparent 100%),
+        radial-gradient(1px 1px at 40%  8%, rgba(255,255,255,.60) 0%,transparent 100%),
+        radial-gradient(1px 1px at 55% 75%, rgba(255,255,255,.35) 0%,transparent 100%),
+        radial-gradient(1px 1px at 70% 30%, rgba(255,255,255,.50) 0%,transparent 100%),
+        radial-gradient(1px 1px at 85% 55%, rgba(255,255,255,.45) 0%,transparent 100%),
+        radial-gradient(1px 1px at 92% 20%, rgba(255,255,255,.55) 0%,transparent 100%),
+        radial-gradient(1.5px 1.5px at 18% 85%, rgba(200,180,255,.50) 0%,transparent 100%),
+        radial-gradient(1.5px 1.5px at 63% 45%, rgba(180,230,255,.45) 0%,transparent 100%),
+        radial-gradient(1px 1px at 78% 90%, rgba(255,255,255,.40) 0%,transparent 100%),
+        radial-gradient(1px 1px at  5% 42%, rgba(255,255,255,.35) 0%,transparent 100%),
+        radial-gradient(1px 1px at 48% 92%, rgba(255,255,255,.45) 0%,transparent 100%);
+    }
+
+    .text-gradient {
+      background: linear-gradient(135deg,#a855f7,#22d3ee);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+
+    .input-glow:focus {
+      outline:none;
+      box-shadow:0 0 0 1px rgba(168,85,247,.6), 0 0 24px rgba(168,85,247,.25);
+    }
+
+    .gradient-border { position:relative; }
+    .gradient-border::before {
+      content:''; position:absolute; inset:0; border-radius:inherit; padding:1px;
+      background:linear-gradient(135deg,rgba(168,85,247,.6),rgba(34,211,238,.6));
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;
+    }
+
+    .card-hover { transition:transform .25s ease, box-shadow .25s ease; }
+    .card-hover:hover {
+      transform:translateY(-3px);
+      box-shadow:0 8px 40px rgba(168,85,247,.25), 0 4px 16px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07);
+    }
+
+    .table-row-hover:hover { background:rgba(168,85,247,.07); }
+
+    .badge-rank {
+      background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(34,211,238,.25));
+      border:1px solid rgba(168,85,247,.4);
+    }
+
+    @keyframes pulse-glow {
+      0%,100% { opacity:1; box-shadow:0 0 6px rgba(34,211,238,.8); }
+      50%      { opacity:.5; box-shadow:0 0 12px rgba(34,211,238,.4); }
+    }
+    .pulse-dot { animation:pulse-glow 2s ease-in-out infinite; }
+
+    .divider {
+      height:1px;
+      background:linear-gradient(90deg,transparent,rgba(168,85,247,.4),rgba(34,211,238,.4),transparent);
+    }
+
+    /* card fade animation */
+    .card-anim { transition:opacity .3s ease, transform .3s ease; }
+    .card-anim.fading { opacity:0; transform:translateY(10px); }
+
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(12px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .fade-in { animation:fadeIn .4s ease forwards; }
+    .fade-in-delay-1 { animation:fadeIn .4s ease .08s forwards; opacity:0; }
+    .fade-in-delay-2 { animation:fadeIn .4s ease .16s forwards; opacity:0; }
+
+    /* btn loading spinner */
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .spinner { animation:spin .7s linear infinite; }
+
+    /* task badge */
+    .task-badge-enter { animation:fadeIn .3s ease forwards; }
+  </style>
+</head>
+<body class="min-h-screen text-white font-sans antialiased relative overflow-x-hidden">
+
+  <div class="stars"></div>
+  <div class="fixed inset-0 pointer-events-none z-0"
+       style="background:radial-gradient(ellipse 80% 45% at 50% -5%,rgba(168,85,247,.15),transparent)"></div>
+
+  <!-- ═══════════════════════════════════════ HEADER -->
+  <header class="relative z-10 border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center"
+             style="background:linear-gradient(135deg,#a855f7,#22d3ee);box-shadow:0 0 18px rgba(168,85,247,.5);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold tracking-tight text-gradient">AI Model Comparator</span>
+      </div>
+      <nav class="hidden md:flex items-center gap-7 text-sm text-white/50 font-medium">
+        <a href="#compare-section" class="hover:text-white/90 transition-colors">Compare</a>
+        <a href="#benchmarks-section" class="hover:text-white/90 transition-colors">Benchmarks</a>
+        <a href="#leaderboard-section" class="hover:text-white/90 transition-colors">Leaderboard</a>
+        <a href="#" class="hover:text-white/90 transition-colors">Docs</a>
+      </nav>
+      <div class="flex items-center gap-2 text-xs text-white/40 font-medium bg-white/5 border border-white/10 rounded-full px-3 py-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 pulse-dot inline-block"></span>
+        10 models tracked
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════ HERO / INPUT -->
+  <section id="compare-section" class="relative z-10 pt-20 pb-16 px-6">
+    <div class="max-w-3xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-purple-glow/80 mb-5 bg-purple-glow/10 border border-purple-glow/20 rounded-full px-4 py-1.5">
+        <span class="w-1 h-1 rounded-full bg-purple-400 inline-block"></span>
+        Intelligent Model Selection
+      </div>
+      <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight leading-tight mb-4">
+        Find the <span class="text-gradient">perfect AI</span><br />for any task
+      </h1>
+      <p class="text-white/45 text-lg font-light leading-relaxed mb-12 max-w-xl mx-auto">
+        Describe what you need — we'll rank every major model by cost, speed, quality, and capability so you ship faster.
+      </p>
+
+      <div class="gradient-border rounded-2xl bg-space-800/80 backdrop-blur-sm p-1.5 shadow-card">
+        <div class="flex flex-col sm:flex-row gap-2 p-1">
+          <input id="taskInput" type="text"
+            placeholder="e.g. Summarise long legal documents with high accuracy..."
+            class="input-glow flex-1 bg-space-900/60 text-white placeholder-white/25 text-sm font-normal rounded-xl px-5 py-4 border border-white/8 transition-all" />
+          <button id="analyseBtn"
+            class="shrink-0 relative overflow-hidden rounded-xl px-7 py-4 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 min-w-[160px]"
+            style="background:linear-gradient(135deg,#a855f7,#22d3ee);box-shadow:0 0 22px rgba(168,85,247,.45);">
+            <span id="btnIcon">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+              </svg>
+            </span>
+            <span id="btnLabel">Analyse Task</span>
+          </button>
+        </div>
+
+        <div class="flex flex-wrap gap-2 px-2 pb-2 pt-1">
+          <span class="text-xs text-white/30 font-medium self-center pr-1">Try:</span>
+          <button class="suggestion-chip text-xs text-white/45 bg-white/5 border border-white/8 rounded-full px-3 py-1 hover:bg-white/10 hover:text-white/70 transition-all"
+                  data-task="Write a Python function to parse and validate JSON from an API response">Code generation</button>
+          <button class="suggestion-chip text-xs text-white/45 bg-white/5 border border-white/8 rounded-full px-3 py-1 hover:bg-white/10 hover:text-white/70 transition-all"
+                  data-task="Describe and analyse product images for an e-commerce catalogue">Multimodal reasoning</button>
+          <button class="suggestion-chip text-xs text-white/45 bg-white/5 border border-white/8 rounded-full px-3 py-1 hover:bg-white/10 hover:text-white/70 transition-all"
+                  data-task="Analyse a 200-page legal contract and extract key risk clauses">Long-context analysis</button>
+          <button class="suggestion-chip text-xs text-white/45 bg-white/5 border border-white/8 rounded-full px-3 py-1 hover:bg-white/10 hover:text-white/70 transition-all"
+                  data-task="Build a real-time customer support chatbot with instant responses">Real-time chat</button>
+          <button class="suggestion-chip text-xs text-white/45 bg-white/5 border border-white/8 rounded-full px-3 py-1 hover:bg-white/10 hover:text-white/70 transition-all"
+                  data-task="Process 10 million user support tickets as cheaply as possible">Budget-conscious scale</button>
+        </div>
+      </div>
+
+      <!-- Task type badge — shown after analysis -->
+      <div id="taskBadge" class="hidden mt-5 flex justify-center">
+        <div class="inline-flex items-center gap-2.5 text-sm font-medium bg-space-800/80 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-sm">
+          <span id="taskBadgeIcon" class="text-base"></span>
+          <span class="text-white/40">Detected:</span>
+          <span id="taskBadgeLabel" class="text-gradient font-semibold"></span>
+          <span class="text-white/20">·</span>
+          <span id="taskBadgeCount" class="text-white/40 text-xs"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider max-w-7xl mx-auto px-6"></div>
+
+  <!-- ═══════════════════════════════════════ MAIN -->
+  <main class="relative z-10 max-w-7xl mx-auto px-6 py-14 space-y-16">
+
+    <!-- ── Top Recommendations ── -->
+    <section>
+      <div class="flex items-end justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-bold tracking-tight mb-1">Top Recommendations</h2>
+          <p class="text-white/40 text-sm" id="recSubtitle">Ranked by overall fit for your task</p>
+        </div>
+        <button class="text-xs text-purple-glow/80 font-medium hover:text-purple-soft transition-colors flex items-center gap-1">
+          View all models
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+          </svg>
+        </button>
+      </div>
+      <div id="recommendationsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ── Radar Chart ── -->
+    <section>
+      <div class="flex items-end justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-bold tracking-tight mb-1">Capability Radar</h2>
+          <p class="text-white/40 text-sm">Multi-dimensional performance across 6 key dimensions</p>
+        </div>
+        <div id="chartLegend" class="hidden sm:flex items-center gap-5 text-xs text-white/45 font-medium">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <div class="gradient-border rounded-2xl bg-space-800/50 backdrop-blur-sm shadow-card overflow-hidden">
+        <div class="flex flex-col lg:flex-row">
+          <div class="flex-1 flex items-center justify-center p-8 min-h-[420px]">
+            <div class="relative w-full max-w-md aspect-square">
+              <canvas id="radarChart"></canvas>
+            </div>
+          </div>
+          <div class="lg:w-64 border-t lg:border-t-0 lg:border-l border-white/6 p-6 flex flex-col gap-3">
+            <h3 class="text-xs font-semibold tracking-widest uppercase text-white/35 mb-2">Dimensions</h3>
+            <div class="space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);">🎯</div>
+                <div><div class="text-xs font-semibold text-white/80">Reasoning</div><div class="text-[10px] text-white/35">Logic & problem solving</div></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);">✍️</div>
+                <div><div class="text-xs font-semibold text-white/80">Writing</div><div class="text-[10px] text-white/35">Prose quality & creativity</div></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);">💻</div>
+                <div><div class="text-xs font-semibold text-white/80">Coding</div><div class="text-[10px] text-white/35">Code generation & debugging</div></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);">🖼️</div>
+                <div><div class="text-xs font-semibold text-white/80">Multimodal</div><div class="text-[10px] text-white/35">Vision & audio support</div></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);">💰</div>
+                <div><div class="text-xs font-semibold text-white/80">Cost Eff.</div><div class="text-[10px] text-white/35">Value per output token</div></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style="background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.25);">⚡</div>
+                <div><div class="text-xs font-semibold text-white/80">Latency</div><div class="text-[10px] text-white/35">Tokens/sec throughput</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Benchmarks ── -->
+    <section id="benchmarks-section">
+      <div class="flex items-end justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-bold tracking-tight mb-1">Benchmark Scores</h2>
+          <p class="text-white/40 text-sm">Academic evaluations across all 10 models</p>
+        </div>
+        <div class="hidden sm:flex items-center gap-5 text-xs text-white/45 font-medium">
+          <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm inline-block" style="background:rgba(34,211,238,.75)"></span>MMLU</span>
+          <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm inline-block" style="background:rgba(168,85,247,.75)"></span>HumanEval</span>
+          <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm inline-block" style="background:rgba(52,211,153,.75)"></span>GPQA</span>
+        </div>
+      </div>
+      <div id="benchmarksGrid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+        <!-- Rendered by JS -->
+      </div>
+      <p class="text-xs text-white/20 mt-4 text-right">MMLU 5-shot · HumanEval pass@1 · GPQA Diamond · Sources: provider reports &amp; independent evals</p>
+    </section>
+
+    <!-- ── Full Comparison Table ── -->
+    <section id="leaderboard-section">
+      <div class="flex items-end justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-bold tracking-tight mb-1">Full Model Comparison</h2>
+          <p class="text-white/40 text-sm">All 10 models — sorted by task match score</p>
+        </div>
+        <div class="hidden sm:flex items-center gap-2">
+          <div class="flex items-center gap-2 bg-space-800/60 border border-white/8 rounded-xl px-4 py-2 text-xs text-white/40">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M9 17h6"/>
+            </svg>
+            10 models
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Filter Controls ── -->
+      <div class="flex flex-wrap items-center gap-3 mb-6">
+
+        <!-- Budget Cap slider -->
+        <div class="flex items-center gap-3 bg-space-800/60 border border-white/8 rounded-xl px-4 py-2.5">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" style="color:rgba(255,255,255,.35)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="text-xs font-medium whitespace-nowrap" style="color:rgba(255,255,255,.4)">Budget cap</span>
+          <input id="budgetSlider" type="range" min="0" max="15" step="0.1" value="15"
+            class="w-24 cursor-pointer" style="accent-color:#a855f7" />
+          <span id="budgetLabel" class="text-xs font-semibold min-w-[52px] text-right" style="color:rgba(168,85,247,.9)">No limit</span>
+        </div>
+
+        <!-- Carbon Cap toggle -->
+        <div class="flex items-center gap-2.5 bg-space-800/60 border border-white/8 rounded-xl px-4 py-2.5 cursor-pointer select-none" id="carbonToggleWrap">
+          <span class="text-sm leading-none">🌿</span>
+          <span class="text-xs font-medium whitespace-nowrap" style="color:rgba(255,255,255,.4)">Carbon cap <span style="color:rgba(255,255,255,.2)">&gt; 0.5 gCO₂</span></span>
+          <div id="carbonToggle" role="switch" aria-checked="false"
+            style="width:34px;height:18px;border-radius:9999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);position:relative;flex-shrink:0;transition:background .2s,border-color .2s">
+            <span style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:9999px;background:rgba(255,255,255,.45);transition:transform .2s,background .2s;display:block"></span>
+          </div>
+        </div>
+
+        <!-- Sensitive Data toggle -->
+        <div class="flex items-center gap-2.5 bg-space-800/60 border border-white/8 rounded-xl px-4 py-2.5 cursor-pointer select-none" id="sensitiveToggleWrap">
+          <span class="text-sm leading-none">🔒</span>
+          <span class="text-xs font-medium whitespace-nowrap" style="color:rgba(255,255,255,.4)">Sensitive data</span>
+          <div id="sensitiveToggle" role="switch" aria-checked="false"
+            style="width:34px;height:18px;border-radius:9999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);position:relative;flex-shrink:0;transition:background .2s,border-color .2s">
+            <span style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:9999px;background:rgba(255,255,255,.45);transition:transform .2s,background .2s;display:block"></span>
+          </div>
+        </div>
+
+        <!-- Clear + count indicator -->
+        <div id="filterClearBtn" class="hidden items-center gap-2 cursor-pointer px-2 py-2.5 transition-colors" style="color:rgba(255,255,255,.35)">
+          <span id="visibleModelCount" class="text-xs"></span>
+          <span style="color:rgba(255,255,255,.15)">·</span>
+          <span class="text-xs underline underline-offset-2 hover:text-white/60">Clear filters</span>
+        </div>
+
+      </div>
+
+      <div class="gradient-border rounded-2xl overflow-hidden bg-space-800/40 backdrop-blur-sm shadow-card">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-white/6" style="background:rgba(168,85,247,.06);">
+                <th class="text-left px-5 py-4 text-xs font-semibold tracking-widest uppercase text-white/35 w-8">#</th>
+                <th class="text-left px-4 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">Model</th>
+                <th class="text-left px-4 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">Provider</th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">Score</th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">Quality</th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">Speed</th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">Context</th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">$/1M in</th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">Vision</th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">
+                  <span title="Estimated energy per 1M output tokens">⚡ kWh/1M</span>
+                </th>
+                <th class="text-center px-3 py-4 text-xs font-semibold tracking-widest uppercase text-white/35">
+                  <span title="Estimated CO₂ grams per 1M output tokens">🌿 gCO₂/1M</span>
+                </th>
+                <th class="text-center px-4 py-4 pr-5 text-xs font-semibold tracking-widest uppercase text-white/35">Match</th>
+              </tr>
+            </thead>
+            <tbody id="modelsTbody" class="divide-y divide-white/4">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+        <div class="border-t border-white/6 px-6 py-4 flex items-center justify-between">
+          <span class="text-xs text-white/30">10 models · Prices approximate · Energy &amp; carbon estimates · Updated Feb 2026</span>
+          <span class="text-xs text-white/20 italic">⚡/🌿 figures are estimated kWh &amp; gCO₂ per 1M output tokens</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════ USAGE PROJECTOR -->
+  <section class="relative z-10 max-w-7xl mx-auto px-6 pb-14">
+    <div class="divider mb-14"></div>
+
+    <div class="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-5 mb-8">
+      <div>
+        <h2 class="text-2xl font-bold tracking-tight mb-1">Usage Projector</h2>
+        <p class="text-white/40 text-sm">Estimated monthly cost &amp; annual carbon for your top 3 models</p>
+      </div>
+
+      <!-- Query volume control -->
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-medium" style="color:rgba(255,255,255,.4)">Queries/day</span>
+        <div class="flex items-center gap-1">
+          <button class="proj-preset text-xs rounded-lg px-2.5 py-1.5 font-semibold transition-all border border-white/8 bg-white/5 hover:bg-white/10" style="color:rgba(255,255,255,.45)" data-val="100">100</button>
+          <button class="proj-preset text-xs rounded-lg px-2.5 py-1.5 font-semibold transition-all border border-white/8 bg-white/5 hover:bg-white/10" style="color:rgba(255,255,255,.45)" data-val="1000">1K</button>
+          <button class="proj-preset text-xs rounded-lg px-2.5 py-1.5 font-semibold transition-all border border-white/8 bg-white/5 hover:bg-white/10" style="color:rgba(255,255,255,.45)" data-val="10000">10K</button>
+          <button class="proj-preset text-xs rounded-lg px-2.5 py-1.5 font-semibold transition-all border border-white/8 bg-white/5 hover:bg-white/10" style="color:rgba(255,255,255,.45)" data-val="100000">100K</button>
+        </div>
+        <input id="projQueriesInput" type="number" min="1" value="1000"
+          class="input-glow w-24 bg-space-800/60 text-white text-xs font-semibold rounded-lg px-3 py-1.5 border border-white/10 transition-all text-right" />
+      </div>
+    </div>
+
+    <div id="projectorGrid" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <!-- Rendered by JS -->
+    </div>
+
+    <p class="text-xs mt-4" style="color:rgba(255,255,255,.18)">Assumes ~1,000 blended tokens/query; cost uses input price as proxy. Carbon based on estimated output tokens only.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════ FOOTER -->
+  <footer class="relative z-10 border-t border-white/5 mt-8">
+    <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2 text-xs text-white/25">
+        <span class="text-gradient font-semibold text-sm">AI Model Comparator</span>
+        <span class="text-white/15">·</span>
+        <span>Data sourced from public benchmarks &amp; provider docs</span>
+      </div>
+      <div class="flex items-center gap-5 text-xs text-white/25">
+        <a href="#" class="hover:text-white/50 transition-colors">Privacy</a>
+        <a href="#" class="hover:text-white/50 transition-colors">Terms</a>
+        <a href="#" class="hover:text-white/50 transition-colors">API</a>
+        <a href="#" class="hover:text-white/50 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════════ -->
+<script>
+// ─────────────────────────────────────────────────────────────
+// MODEL DATABASE
+// radar: [reasoning, writing, coding, multimodal, costEff, latency]
+// energy: estimated kWh per 1M output tokens
+// carbon: estimated gCO₂ per 1M output tokens
+// ─────────────────────────────────────────────────────────────
+const MODELS = [
+  {
+    id: 'gpt4o',
+    name: 'GPT-4o',
+    modelId: 'gpt-4o-2024-11-20',
+    provider: 'OpenAI',
+    emoji: '🤖',
+    accent: '34,211,238',
+    quality: 92, speed: 82, costScore: 62,
+    context: '128K', inputPrice: 2.50,
+    multimodal: true,
+    energyKwh: 0.0030, carbonGco2: 0.60,
+    radar: [94, 90, 90, 95, 52, 70],
+    reasons: {
+      coding:    'Top-tier code generation with native vision for UI/screenshot tasks',
+      writing:   'Nuanced, high-quality prose with excellent instruction following',
+      analysis:  'Strong multi-step reasoning over complex, heterogeneous documents',
+      multimodal:'Best-in-class vision — understands diagrams, charts, and UI screenshots',
+      speed:     'Solid throughput but not optimised for sub-100ms real-time latency',
+      budget:    'Premium pricing — consider GPT-4o mini for high-volume workloads',
+      default:   'Versatile flagship model balancing quality, speed, and multimodality',
+    }
+  },
+  {
+    id: 'gpt4omini',
+    name: 'GPT-4o mini',
+    modelId: 'gpt-4o-mini-2024-07-18',
+    provider: 'OpenAI',
+    emoji: '⚡',
+    accent: '34,211,238',
+    quality: 82, speed: 95, costScore: 93,
+    context: '128K', inputPrice: 0.15,
+    multimodal: true,
+    energyKwh: 0.0005, carbonGco2: 0.10,
+    radar: [75, 80, 82, 78, 93, 92],
+    reasons: {
+      coding:    'Great for routine code tasks, scaffolding, and quick scripts at minimal cost',
+      writing:   'Efficient for short-form content, templates, and structured writing at scale',
+      analysis:  'Best for high-volume extraction and lightweight classification pipelines',
+      multimodal:'Multimodal support at ultra-low cost — ideal for lightweight vision tasks',
+      speed:     'Extremely fast — one of the lowest-latency frontier models available',
+      budget:    'Industry-leading price-to-performance ratio at just $0.15/1M tokens',
+      default:   'Ultra-affordable, fast, and surprisingly capable for everyday tasks',
+    }
+  },
+  {
+    id: 'sonnet46',
+    name: 'Claude Sonnet 4.6',
+    modelId: 'claude-sonnet-4-6',
+    provider: 'Anthropic',
+    emoji: '🦾',
+    accent: '168,85,247',
+    quality: 89, speed: 90, costScore: 70,
+    context: '200K', inputPrice: 3.00,
+    multimodal: true,
+    energyKwh: 0.0022, carbonGco2: 0.40,
+    radar: [89, 91, 90, 85, 62, 82],
+    reasons: {
+      coding:    'Exceptional code quality — leading at debugging, refactoring, and test generation',
+      writing:   'Best-in-class prose — nuanced, structured, and genuinely creative writing',
+      analysis:  'Deep structured reasoning over long documents with a 200K context window',
+      multimodal:'Strong vision paired with high-quality synthesis and structured output',
+      speed:     'Fast enough for most workflows with consistently premium output quality',
+      budget:    'Mid-tier pricing with premium output — strong value for complex agentic tasks',
+      default:   'Best balanced model combining high quality, speed, and a large context window',
+    }
+  },
+  {
+    id: 'haiku35',
+    name: 'Claude Haiku 3.5',
+    modelId: 'claude-haiku-4-5-20251001',
+    provider: 'Anthropic',
+    emoji: '🌸',
+    accent: '168,85,247',
+    quality: 76, speed: 97, costScore: 90,
+    context: '200K', inputPrice: 0.80,
+    multimodal: true,
+    energyKwh: 0.0004, carbonGco2: 0.07,
+    radar: [70, 74, 73, 70, 88, 96],
+    reasons: {
+      coding:    'Fast code generation for boilerplate, templates, and simple scripts at low cost',
+      writing:   'Quick drafts and templated content with Anthropic\'s safety and quality baseline',
+      analysis:  'Ideal for high-volume extraction, classification, and summarisation pipelines',
+      multimodal:'Lightweight vision tasks with Anthropic safety guarantees at minimal cost',
+      speed:     'Fastest Anthropic model — near-instant responses for real-time chat applications',
+      budget:    'Anthropic quality at a fraction of Sonnet\'s price — ideal for high-volume pipelines',
+      default:   'Fastest Anthropic model — perfect for latency-sensitive, high-volume use cases',
+    }
+  },
+  {
+    id: 'gemini15pro',
+    name: 'Gemini 1.5 Pro',
+    modelId: 'gemini-1.5-pro-002',
+    provider: 'Google DeepMind',
+    emoji: '🌐',
+    accent: '99,102,241',
+    quality: 88, speed: 85, costScore: 72,
+    context: '1M', inputPrice: 3.50,
+    multimodal: true,
+    energyKwh: 0.0020, carbonGco2: 0.20,
+    radar: [85, 82, 86, 92, 68, 78],
+    reasons: {
+      coding:    'Strong codebase comprehension — 1M context fits entire large repos in one call',
+      writing:   'Long-form content creation with excellent factual grounding and citations',
+      analysis:  'Unmatched 1M context — ideal for entire document collections and codebases',
+      multimodal:'Native multimodal with strong video, audio, and interleaved image understanding',
+      speed:     'Reliable speed for large context — not fastest but handles huge inputs well',
+      budget:    'Mid-tier pricing with the largest context window of any major frontier model',
+      default:   'Best-in-class 1M context window for long document and large codebase analysis',
+    }
+  },
+  {
+    id: 'gemini20flash',
+    name: 'Gemini 2.0 Flash',
+    modelId: 'gemini-2.0-flash',
+    provider: 'Google DeepMind',
+    emoji: '🔥',
+    accent: '99,102,241',
+    quality: 86, speed: 97, costScore: 92,
+    context: '1M', inputPrice: 0.10,
+    multimodal: true,
+    energyKwh: 0.0006, carbonGco2: 0.06,
+    radar: [82, 80, 85, 88, 90, 95],
+    reasons: {
+      coding:    'Fast accurate coding at minimal cost — superb for rapid iteration and CI pipelines',
+      writing:   'Quick competent writing with Google\'s knowledge base at near-zero price per token',
+      analysis:  'Highest throughput for 1M-context analysis — process entire books in seconds',
+      multimodal:'Multimodal at the lowest price point of any frontier vision model currently',
+      speed:     'Fastest model with 1M context — the go-to for real-time agentic applications',
+      budget:    'Cheapest frontier model at $0.10/1M with massive context — exceptional value',
+      default:   'Fastest, cheapest frontier model with a 1M context window and strong capabilities',
+    }
+  },
+  {
+    id: 'llama33',
+    name: 'Llama 3.3 70B',
+    modelId: 'llama-3.3-70b-versatile',
+    provider: 'Meta (via Groq)',
+    emoji: '🦙',
+    accent: '251,191,36',
+    quality: 80, speed: 88, costScore: 95,
+    context: '128K', inputPrice: 0.23,
+    multimodal: false,
+    energyKwh: 0.0008, carbonGco2: 0.12,
+    radar: [78, 76, 80, 5, 94, 86],
+    reasons: {
+      coding:    'Open-source leader for coding — self-hostable for full data control and privacy',
+      writing:   'Solid writing capability that can be fine-tuned for your specific domain and style',
+      analysis:  'Text-only but strong reasoning — ideal for private, air-gapped document analysis',
+      multimodal:'Text-only model — not suitable for vision or multimodal tasks',
+      speed:     'Very fast via Groq inference hardware — near-instant latency at low cost',
+      budget:    'Open-source: free to self-host or just $0.23/1M via third-party inference APIs',
+      default:   'Best open-source option — self-hostable, very fast via Groq, and highly affordable',
+    }
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral Large 2',
+    modelId: 'mistral-large-2407',
+    provider: 'Mistral AI',
+    emoji: '💨',
+    accent: '251,146,60',
+    quality: 80, speed: 82, costScore: 75,
+    context: '128K', inputPrice: 2.00,
+    multimodal: false,
+    energyKwh: 0.0012, carbonGco2: 0.06,
+    radar: [82, 78, 80, 5, 70, 78],
+    reasons: {
+      coding:    'Strong multilingual coding support — excellent for European and polyglot tech stacks',
+      writing:   'Best non-English prose quality — excellent for multilingual content production',
+      analysis:  'Solid reasoning with strong EU data compliance and on-premise deployment options',
+      multimodal:'Text-only — best deployed locally for air-gapped or GDPR-sensitive analysis',
+      speed:     'Moderate speed — best suited for batch processing rather than real-time apps',
+      budget:    'Competitive pricing with strong European sovereignty and self-hosting flexibility',
+      default:   'Strong multilingual model with European compliance and flexible deployment options',
+    }
+  },
+  {
+    id: 'grok2',
+    name: 'Grok 2',
+    modelId: 'grok-2-1212',
+    provider: 'xAI',
+    emoji: '🚀',
+    accent: '244,63,94',
+    quality: 86, speed: 80, costScore: 68,
+    context: '128K', inputPrice: 2.00,
+    multimodal: true,
+    energyKwh: 0.0025, carbonGco2: 0.88,
+    radar: [85, 84, 86, 80, 62, 74],
+    reasons: {
+      coding:    'Competitive coding performance with access to real-time web and X/Twitter data',
+      writing:   'Strong creative writing with unique real-time information access via X',
+      analysis:  'Good reasoning combined with live web search and up-to-the-minute news access',
+      multimodal:'Solid vision capabilities for image understanding and multimodal analysis tasks',
+      speed:     'Moderate speed — better suited for thoughtful tasks than real-time interactions',
+      budget:    'Mid-tier pricing — best justified when unique real-time data access adds value',
+      default:   'Strong all-rounder with unique access to real-time web and X social data',
+    }
+  },
+  {
+    id: 'commandrplus',
+    name: 'Command R+',
+    modelId: 'command-r-plus-08-2024',
+    provider: 'Cohere',
+    emoji: '📡',
+    accent: '52,211,153',
+    quality: 78, speed: 78, costScore: 80,
+    context: '128K', inputPrice: 2.50,
+    multimodal: false,
+    energyKwh: 0.0010, carbonGco2: 0.20,
+    radar: [74, 80, 70, 5, 76, 74],
+    reasons: {
+      coding:    'Adequate coding with best-in-class RAG — use when retrieval pipelines are involved',
+      writing:   'Solid writing with built-in retrieval grounding for accurate, cited content',
+      analysis:  'Best-in-class RAG performance — ideal for large-scale retrieval-augmented analysis',
+      multimodal:'Text-only — focus on enterprise RAG connectors and workflow integration instead',
+      speed:     'Moderate speed — designed for enterprise reliability and accuracy over raw latency',
+      budget:    'Reasonable pricing with Cohere enterprise connectors and on-premise options included',
+      default:   'Enterprise-focused model excelling at RAG, retrieval, and grounded document tasks',
+    }
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// TASK CLASSIFICATION
+// ─────────────────────────────────────────────────────────────
+const TASK_KEYWORDS = {
+  coding:    ['code','program','function','debug','script','api','javascript','python','typescript','sql','refactor','bug','test','unit test','implement','algorithm','backend','frontend','software','repo','class','method','compile','syntax','develop','coding','github','cli','html','css','react','node','library','package','loop','array','string','database','query','build'],
+  writing:   ['write','essay','blog','article','email','story','creative','copy','draft','edit','proofread','marketing','summarise','summarize','rewrite','paraphrase','content','letter','report','novel','poem','caption','description','narrative','paragraph','sentence','tone','style','grammar','social media','tweet','post'],
+  analysis:  ['analyse','analyze','research','insights','extract','review','document','legal','financial','audit','compare','evaluate','assess','understand','explain','contract','paper','academic','study','interpret','classify','categorise','categorize','report','findings','identify','detect','trend','pattern','data','statistics','metrics'],
+  multimodal:['image','photo','picture','video','diagram','chart','screenshot','visual','ocr','describe','caption','vision','multimodal','graphic','look at','figure','illustration','drawing','table','graph','slide','pdf page','infographic','map','render'],
+  speed:     ['fast','quick','real-time','realtime','low latency','instant','rapid','live','streaming','interactive','response time','latency','speed','immediately','chatbot','assistant','voice','low-latency','milliseconds','throughput','concurrent'],
+  budget:    ['cheap','budget','affordable','cost','price','free','inexpensive','scale','millions','high volume','economical','save money','low cost','frugal','lean','startup','optimize cost','reduce cost','expensive','pricing'],
+};
+
+const TASK_WEIGHTS = {
+  //               [reasoning, writing, coding, multimodal, costEff, latency]
+  coding:    [0.18,  0.05,     0.50,   0.04,   0.10,       0.13],
+  writing:   [0.15,  0.50,     0.05,   0.04,   0.10,       0.16],
+  analysis:  [0.48,  0.14,     0.10,   0.06,   0.06,       0.16],
+  multimodal:[0.10,  0.09,     0.06,   0.58,   0.06,       0.11],
+  speed:     [0.06,  0.04,     0.05,   0.04,   0.28,       0.53],
+  budget:    [0.11,  0.09,     0.09,   0.04,   0.58,       0.09],
+  default:   [0.26,  0.20,     0.20,   0.10,   0.10,       0.14],
+};
+
+const TASK_META = {
+  coding:    { label:'Code Generation',       icon:'💻', color:'rgba(34,211,238,1)'  },
+  writing:   { label:'Writing & Content',     icon:'✍️',  color:'rgba(168,85,247,1)' },
+  analysis:  { label:'Analysis & Research',   icon:'🔍', color:'rgba(99,102,241,1)'  },
+  multimodal:{ label:'Multimodal & Vision',   icon:'🖼️',  color:'rgba(251,191,36,1)' },
+  speed:     { label:'Speed-Critical',        icon:'⚡', color:'rgba(34,211,238,1)'  },
+  budget:    { label:'Budget-Conscious',      icon:'💰', color:'rgba(52,211,153,1)'  },
+  default:   { label:'General Purpose',       icon:'🧠', color:'rgba(168,85,247,1)'  },
+};
+
+const RANK_LABELS = {
+  coding:    ['Top Coder',    'Runner Up', 'Consider'],
+  writing:   ['Best Writer',  'Runner Up', 'Consider'],
+  analysis:  ['Deep Analyst', 'Runner Up', 'Consider'],
+  multimodal:['Vision Leader','Runner Up', 'Consider'],
+  speed:     ['Fastest',      'Runner Up', 'Consider'],
+  budget:    ['Best Value',   'Runner Up', 'Consider'],
+  default:   ['Best Overall', 'Balanced',  'Consider'],
+};
+
+// ─────────────────────────────────────────────────────────────
+// FILTER STATE
+// ─────────────────────────────────────────────────────────────
+let filterBudget    = 15;      // $/1M input — 15 = no limit
+let filterCarbon    = false;   // hide models > 0.5 gCO₂
+let filterSensitive = false;   // gray out non-privacy-friendly models
+const SENSITIVE_IDS = new Set(['gpt4o', 'grok2']);
+
+let lastRanked   = [];
+let lastTaskType = 'default';
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+function detectTaskType(text) {
+  if (!text.trim()) return 'default';
+  const lower = text.toLowerCase();
+  const scores = {};
+  for (const [type, kws] of Object.entries(TASK_KEYWORDS)) {
+    scores[type] = kws.filter(kw => lower.includes(kw)).length;
+  }
+  const max = Math.max(...Object.values(scores));
+  if (max === 0) return 'default';
+  return Object.keys(scores).find(t => scores[t] === max);
+}
+
+function scoreModel(model, taskType) {
+  const w = TASK_WEIGHTS[taskType] || TASK_WEIGHTS.default;
+  return model.radar.reduce((sum, v, i) => sum + v * w[i], 0);
+}
+
+function rankModels(taskType) {
+  return [...MODELS]
+    .map(m => ({ model: m, score: scoreModel(m, taskType) }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function overallScore(model) {
+  return Math.round(model.quality * 0.65 + model.speed * 0.20 + model.costScore * 0.15);
+}
+
+// color utilities
+function energyColor(kwh) {
+  if (kwh < 0.0007) return { bg:'rgba(52,211,153,.18)',  border:'rgba(52,211,153,.4)',  text:'rgb(110,231,183)' };
+  if (kwh < 0.0015) return { bg:'rgba(34,211,238,.15)',  border:'rgba(34,211,238,.35)', text:'rgb(103,232,249)' };
+  if (kwh < 0.0025) return { bg:'rgba(251,191,36,.15)',  border:'rgba(251,191,36,.35)', text:'rgb(253,224,71)'  };
+  return               { bg:'rgba(244,63,94,.15)',   border:'rgba(244,63,94,.35)',  text:'rgb(251,113,133)'};
+}
+
+function carbonColor(g) {
+  if (g < 0.10) return { bg:'rgba(52,211,153,.18)',  border:'rgba(52,211,153,.4)',  text:'rgb(110,231,183)' };
+  if (g < 0.35) return { bg:'rgba(34,211,238,.15)',  border:'rgba(34,211,238,.35)', text:'rgb(103,232,249)' };
+  if (g < 0.65) return { bg:'rgba(251,191,36,.15)',  border:'rgba(251,191,36,.35)', text:'rgb(253,224,71)'  };
+  return              { bg:'rgba(244,63,94,.15)',   border:'rgba(244,63,94,.35)',  text:'rgb(251,113,133)'};
+}
+
+function badgeFor(val, thresholds) {
+  // thresholds: [high_min, med_min] → returns CSS classes
+  const [hi, md] = thresholds;
+  if (val >= hi) return `background:rgba(168,85,247,.2);color:rgb(192,132,252);border:1px solid rgba(168,85,247,.35);`;
+  if (val >= md) return `background:rgba(255,255,255,.06);color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.1);`;
+  return              `background:rgba(255,255,255,.04);color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.07);`;
+}
+
+function checkIcon(yes) {
+  if (yes) return `<span style="color:rgb(103,232,249)"><svg class="w-3.5 h-3.5 mx-auto" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span>`;
+  return `<span style="color:rgba(255,255,255,.2)"><svg class="w-3 h-3 mx-auto" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></span>`;
+}
+
+// Energy/carbon confidence: 'ver' = provider-published data, 'est' = modelled estimate
+const ENERGY_CONFIDENCE = {
+  gpt4o:        'est',
+  gpt4omini:    'est',
+  sonnet46:     'est',
+  haiku35:      'est',
+  gemini15pro:  'ver',
+  gemini20flash:'ver',
+  llama33:      'est',
+  mistral:      'est',
+  grok2:        'est',
+  commandrplus: 'est',
+};
+
+function confBadge(modelId) {
+  if ((ENERGY_CONFIDENCE[modelId] || 'est') === 'ver') {
+    return `<div style="font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(52,211,153,.85);margin-top:3px">✓ Verified</div>`;
+  }
+  return `<div style="font-size:8px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.2);margin-top:3px">~ Est.</div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER — RECOMMENDATION CARDS
+// ─────────────────────────────────────────────────────────────
+function renderCards(ranked, taskType) {
+  const grid = document.getElementById('recommendationsGrid');
+  const top3 = ranked.slice(0, 3);
+  const maxScore = ranked[0].score;
+  const labels = RANK_LABELS[taskType] || RANK_LABELS.default;
+  const labelColors = [
+    'color:rgb(250,204,21)',      // gold
+    'color:rgb(103,232,249)',     // cyan
+    'color:rgb(192,132,252)',     // purple
+  ];
+  const cardBorder = [
+    true, false, false,
+  ];
+
+  grid.innerHTML = top3.map(({ model: m, score }, i) => {
+    const matchPct = Math.round((score / maxScore) * 100);
+    const a = m.accent;
+    const isTop = i === 0;
+
+    const bars = [
+      { label:'Quality', val: m.quality },
+      { label:'Speed',   val: m.speed   },
+      { label:'Cost',    val: m.costScore},
+    ].map(b => `
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span style="color:rgba(255,255,255,.4)">${b.label}</span>
+          <span style="color:rgba(255,255,255,.7);font-weight:500">${b.val}</span>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,.08);border-radius:9999px;overflow:hidden">
+          <div style="height:100%;width:${b.val}%;border-radius:9999px;${isTop ? `background:linear-gradient(90deg,rgba(${a},1),rgba(34,211,238,1))` : `background:rgba(${a},.65)`}"></div>
+        </div>
+      </div>`).join('');
+
+    const tags = [
+      m.context !== '128K' ? `<span style="font-size:10px;font-weight:500;background:rgba(${a},.12);color:rgba(${a},.9);border:1px solid rgba(${a},.25);border-radius:9999px;padding:2px 8px">${m.context} ctx</span>` : `<span style="font-size:10px;font-weight:500;background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);border-radius:9999px;padding:2px 8px">${m.context}</span>`,
+      m.multimodal ? `<span style="font-size:10px;font-weight:500;background:rgba(${a},.14);color:rgba(${a},.85);border:1px solid rgba(${a},.28);border-radius:9999px;padding:2px 8px">Vision</span>` : '',
+    ].filter(Boolean).join('');
+
+    const borderStyle = isTop
+      ? `background:rgba(13,21,48,.75);border:1px solid rgba(${a},.3);box-shadow:0 0 30px rgba(${a},.12),0 4px 32px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05)`
+      : `background:rgba(13,21,48,.55);border:1px solid rgba(255,255,255,.06);box-shadow:0 4px 32px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04)`;
+
+    return `
+    <div class="card-hover rounded-2xl p-6 cursor-pointer fade-in${i > 0 ? `-delay-${i}` : ''}" style="${borderStyle};border-radius:16px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;background:${isTop ? `linear-gradient(135deg,rgba(${a},.3),rgba(34,211,238,.3))` : `rgba(${a},.15)`};border:1px solid rgba(${a},.4)">${m.emoji}</div>
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px;${labelColors[i]}">${labels[i]}</div>
+            <div style="font-size:15px;font-weight:600;color:rgba(255,255,255,.92);line-height:1.3">${m.name}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.35)">${m.provider}</div>
+          </div>
+        </div>
+        <div style="background:${isTop ? `linear-gradient(135deg,rgba(168,85,247,.25),rgba(34,211,238,.25))` : `rgba(255,255,255,.05)`};border:1px solid rgba(${a},.${isTop?'4':'1'});border-radius:9999px;padding:4px 10px;font-size:12px;font-weight:700;color:rgba(255,255,255,${isTop?'.9':'.5'})">#${i+1}</div>
+      </div>
+
+      <div style="space-y:10px;margin-bottom:20px;display:flex;flex-direction:column;gap:10px">${bars}</div>
+
+      <div style="font-size:11px;color:rgba(255,255,255,.45);line-height:1.5;margin-bottom:16px;padding:10px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(255,255,255,.06)">
+        ${m.reasons[taskType] || m.reasons.default}
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${tags}</div>
+        <span style="font-size:11px;color:rgba(255,255,255,.4);font-weight:500">$${m.inputPrice.toFixed(2)}/1M</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER — COMPARISON TABLE
+// ─────────────────────────────────────────────────────────────
+function renderTable(ranked, taskType) {
+  const tbody    = document.getElementById('modelsTbody');
+  const maxScore = ranked[0].score;
+
+  // Apply hard-hide filters (budget + carbon)
+  const visible = ranked.filter(({ model: m }) => {
+    if (m.inputPrice > filterBudget) return false;
+    if (filterCarbon && m.carbonGco2 > 0.5) return false;
+    return true;
+  });
+
+  // Update clear button + count
+  const hasFilter = filterBudget < 15 || filterCarbon || filterSensitive;
+  const clearBtn  = document.getElementById('filterClearBtn');
+  const countEl   = document.getElementById('visibleModelCount');
+  if (hasFilter) {
+    clearBtn.classList.remove('hidden');
+    clearBtn.classList.add('flex');
+    countEl.textContent = `${visible.length} of ${ranked.length} models`;
+  } else {
+    clearBtn.classList.add('hidden');
+    clearBtn.classList.remove('flex');
+  }
+
+  if (visible.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="12" style="padding:48px;text-align:center;color:rgba(255,255,255,.3);font-size:13px">No models match the current filters.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = visible.map(({ model: m, score }, i) => {
+    const matchPct    = Math.round((score / maxScore) * 100);
+    const overall     = overallScore(m);
+    const a           = m.accent;
+    const ec          = energyColor(m.energyKwh);
+    const cc          = carbonColor(m.carbonGco2);
+    const isTop3      = i < 3;
+    const isSensitive = filterSensitive && SENSITIVE_IDS.has(m.id);
+
+    const matchBarColor = isTop3
+      ? `linear-gradient(90deg,rgba(${a},1),rgba(34,211,238,.8))`
+      : `rgba(${a},.5)`;
+
+    const rowStyle = (isSensitive ? 'opacity:.4;filter:grayscale(.6);' : '') +
+                     (isTop3 ? `background:rgba(${a},.03)` : '');
+
+    const warningBadge = isSensitive
+      ? `<div style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(251,191,36,.95);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:4px;padding:1px 5px">⚠ Not for sensitive data</div>`
+      : '';
+
+    return `
+    <tr class="table-row-hover transition-colors cursor-pointer group" style="${rowStyle}">
+      <td style="padding:14px 8px 14px 20px;color:rgba(255,255,255,.${isTop3?'5':'2'});font-family:monospace;font-size:11px">${i+1}</td>
+      <td style="padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:rgba(${a},.15);border:1px solid rgba(${a},.25)">${m.emoji}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.${isTop3?'92':'75'});transition:color .15s">${m.name}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.28)">${m.modelId}</div>
+            ${warningBadge}
+          </div>
+        </div>
+      </td>
+      <td style="padding:14px 12px;color:rgba(255,255,255,.45);font-size:11px;white-space:nowrap">${m.provider}</td>
+      <td style="padding:14px 12px;text-align:center">
+        <span style="background:linear-gradient(135deg,#a855f7,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700;font-size:14px">${overall}</span>
+      </td>
+      <td style="padding:14px 12px;text-align:center">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:20px;border-radius:4px;font-size:10px;font-weight:700;${badgeFor(m.quality,[88,75])}">${m.quality}</span>
+      </td>
+      <td style="padding:14px 12px;text-align:center">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:20px;border-radius:4px;font-size:10px;font-weight:500;${badgeFor(m.speed,[92,80])}">${m.speed}</span>
+      </td>
+      <td style="padding:14px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.5)">${m.context}</td>
+      <td style="padding:14px 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.5)">$${m.inputPrice.toFixed(2)}</td>
+      <td style="padding:14px 12px;text-align:center">${checkIcon(m.multimodal)}</td>
+      <td style="padding:10px 12px;text-align:center">
+        <span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:${ec.bg};border:1px solid ${ec.border};color:${ec.text}">${m.energyKwh.toFixed(4)}</span>
+        ${confBadge(m.id)}
+      </td>
+      <td style="padding:10px 12px;text-align:center">
+        <span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:${cc.bg};border:1px solid ${cc.border};color:${cc.text}">${m.carbonGco2.toFixed(2)}</span>
+        ${confBadge(m.id)}
+      </td>
+      <td style="padding:14px 16px 14px 12px;text-align:center">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+          <div style="height:6px;width:56px;background:rgba(255,255,255,.08);border-radius:9999px;overflow:hidden">
+            <div style="height:100%;width:${matchPct}%;border-radius:9999px;background:${matchBarColor}"></div>
+          </div>
+          <span style="font-size:10px;color:rgba(255,255,255,.45);font-weight:500;min-width:28px">${matchPct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER — RADAR CHART
+// ─────────────────────────────────────────────────────────────
+const radarCtx = document.getElementById('radarChart').getContext('2d');
+const radarChart = new Chart(radarCtx, {
+  type: 'radar',
+  data: {
+    labels: ['Reasoning','Writing','Coding','Multimodal','Cost Eff.','Latency'],
+    datasets: [],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    scales: {
+      r: {
+        min: 0, max: 100,
+        ticks: { display: false, stepSize: 25 },
+        grid:        { color:'rgba(255,255,255,.07)' },
+        angleLines:  { color:'rgba(255,255,255,.07)' },
+        pointLabels: { color:'rgba(255,255,255,.50)', font:{ size:11, family:'Inter', weight:'500' } },
+      },
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor:'rgba(10,15,30,.95)',
+        borderColor:'rgba(168,85,247,.4)', borderWidth:1,
+        titleColor:'rgba(255,255,255,.9)', bodyColor:'rgba(255,255,255,.55)',
+        padding:10, cornerRadius:10,
+      },
+    },
+    elements: { line:{ tension:0.1 } },
+  },
+});
+
+function updateRadar(top3) {
+  radarChart.data.datasets = top3.map(({ model: m }) => ({
+    label: m.name,
+    data: m.radar,
+    borderColor: `rgba(${m.accent},.9)`,
+    backgroundColor: `rgba(${m.accent},.10)`,
+    borderWidth: 2,
+    pointBackgroundColor: `rgba(${m.accent},1)`,
+    pointBorderColor: '#0a0f1e',
+    pointBorderWidth: 2,
+    pointRadius: 4,
+  }));
+  radarChart.update('active');
+
+  // Update legend
+  const legend = document.getElementById('chartLegend');
+  legend.innerHTML = top3.map(({ model: m }) =>
+    `<span style="display:flex;align-items:center;gap:6px">
+       <span style="width:12px;height:12px;border-radius:3px;background:rgba(${m.accent},.75);display:inline-block"></span>
+       <span>${m.name}</span>
+     </span>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// BENCHMARK DATA
+// mmlu: MMLU 5-shot (%)  humaneval: HumanEval pass@1 (%)  gpqa: GPQA Diamond (%)
+// ─────────────────────────────────────────────────────────────
+const BENCHMARKS = {
+  gpt4o:        { mmlu: 88.7, humaneval: 90.2, gpqa: 53.6 },
+  gpt4omini:    { mmlu: 82.0, humaneval: 87.2, gpqa: 40.2 },
+  sonnet46:     { mmlu: 88.3, humaneval: 92.0, gpqa: 65.0 },
+  haiku35:      { mmlu: 77.0, humaneval: 80.0, gpqa: 41.0 },
+  gemini15pro:  { mmlu: 85.9, humaneval: 84.1, gpqa: 46.2 },
+  gemini20flash:{ mmlu: 85.0, humaneval: 89.0, gpqa: 62.1 },
+  llama33:      { mmlu: 86.0, humaneval: 88.4, gpqa: 50.7 },
+  mistral:      { mmlu: 84.0, humaneval: 83.0, gpqa: 39.6 },
+  grok2:        { mmlu: 87.5, humaneval: 88.5, gpqa: 56.0 },
+  commandrplus: { mmlu: 75.7, humaneval: 71.7, gpqa: 30.4 },
+};
+
+// ─────────────────────────────────────────────────────────────
+// RENDER — BENCHMARKS GRID
+// ─────────────────────────────────────────────────────────────
+function renderBenchmarks() {
+  const grid = document.getElementById('benchmarksGrid');
+  const metrics = [
+    { key: 'mmlu',      label: 'MMLU',       color: '34,211,238'  },
+    { key: 'humaneval', label: 'HumanEval',  color: '168,85,247'  },
+    { key: 'gpqa',      label: 'GPQA',       color: '52,211,153'  },
+  ];
+
+  grid.innerHTML = MODELS.map(m => {
+    const b = BENCHMARKS[m.id];
+    const a = m.accent;
+
+    const bars = metrics.map(({ key, label, color }) => {
+      const val = b[key];
+      return `
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+          <span style="font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.35)">${label}</span>
+          <span style="font-size:11px;font-weight:700;color:rgba(${color},1)">${val}%</span>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,.07);border-radius:9999px;overflow:hidden">
+          <div style="height:100%;width:${val}%;background:linear-gradient(90deg,rgba(${color},.55),rgba(${color},1));border-radius:9999px"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="card-hover gradient-border rounded-2xl p-4" style="background:rgba(13,21,48,.6);backdrop-filter:blur(8px);box-shadow:0 4px 32px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <div style="width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:rgba(${a},.15);border:1px solid rgba(${a},.28)">${m.emoji}</div>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.provider}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">${bars}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAIN ANALYSIS FUNCTION
+// ─────────────────────────────────────────────────────────────
+function analyseTask(text) {
+  const taskType = detectTaskType(text);
+  const ranked   = rankModels(taskType);
+  const top3     = ranked.slice(0, 3);
+  const meta     = TASK_META[taskType];
+
+  // Update subtitle
+  document.getElementById('recSubtitle').textContent =
+    taskType === 'default'
+      ? 'Ranked by overall fit for general-purpose tasks'
+      : `Ranked for "${meta.label}" workloads`;
+
+  // Task badge
+  const badge = document.getElementById('taskBadge');
+  if (text.trim()) {
+    badge.classList.remove('hidden');
+    badge.classList.add('task-badge-enter');
+    document.getElementById('taskBadgeIcon').textContent  = meta.icon;
+    document.getElementById('taskBadgeLabel').textContent = meta.label;
+    document.getElementById('taskBadgeCount').textContent = `top match: ${top3[0].model.name}`;
+  } else {
+    badge.classList.add('hidden');
+  }
+
+  lastRanked   = ranked;
+  lastTaskType = taskType;
+
+  renderCards(ranked, taskType);
+  renderTable(ranked, taskType);
+  updateRadar(top3);
+  renderProjector();
+}
+
+// ─────────────────────────────────────────────────────────────
+// BUTTON LOADING STATE
+// ─────────────────────────────────────────────────────────────
+function triggerAnalysis() {
+  const btn   = document.getElementById('analyseBtn');
+  const icon  = document.getElementById('btnIcon');
+  const label = document.getElementById('btnLabel');
+  const text  = document.getElementById('taskInput').value;
+
+  btn.disabled = true;
+  icon.innerHTML = `<svg class="w-4 h-4 spinner" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`;
+  label.textContent = 'Analysing…';
+
+  setTimeout(() => {
+    analyseTask(text);
+    btn.disabled = false;
+    icon.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>`;
+    label.textContent = 'Analyse Task';
+  }, 380);
+}
+
+// ─────────────────────────────────────────────────────────────
+// EVENT LISTENERS
+// ─────────────────────────────────────────────────────────────
+document.getElementById('analyseBtn').addEventListener('click', triggerAnalysis);
+
+document.getElementById('taskInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') triggerAnalysis();
+});
+
+document.querySelectorAll('.suggestion-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const input = document.getElementById('taskInput');
+    input.value = chip.dataset.task;
+    input.focus();
+    triggerAnalysis();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// RENDER — USAGE PROJECTOR
+// ─────────────────────────────────────────────────────────────
+function renderProjector() {
+  const grid = document.getElementById('projectorGrid');
+  if (!grid || lastRanked.length === 0) return;
+
+  const qpd  = Math.max(1, parseInt(document.getElementById('projQueriesInput').value, 10) || 1000);
+  const top3 = lastRanked.slice(0, 3);
+
+  // Cost: 1,000 blended tokens/query × inputPrice proxy
+  // Carbon: 500 output tokens/query × carbonGco2 per 1M out
+  const TOKENS_COST   = 1000;
+  const TOKENS_CARBON = 500;
+
+  grid.innerHTML = top3.map(({ model: m }, rank) => {
+    const a = m.accent;
+
+    const monthlyCost    = qpd * 30  * TOKENS_COST   * m.inputPrice   / 1_000_000;
+    const annualCarbonG  = qpd * 365 * TOKENS_CARBON * m.carbonGco2   / 1_000_000;
+    const annualCarbonKg = annualCarbonG / 1000;
+
+    const costStr = monthlyCost < 0.01 ? '<$0.01'
+                  : monthlyCost < 1000  ? `$${monthlyCost < 10 ? monthlyCost.toFixed(2) : Math.round(monthlyCost).toLocaleString()}`
+                  : `$${(monthlyCost / 1000).toFixed(1)}K`;
+
+    const carbonStr = annualCarbonKg < 0.001 ? `${(annualCarbonG * 1000).toFixed(1)} mg`
+                    : annualCarbonKg < 1      ? `${(annualCarbonKg * 1000).toFixed(1)} g`
+                    : `${annualCarbonKg.toFixed(2)} kg`;
+
+    const carbonAccent = annualCarbonKg < 0.05  ? '52,211,153'
+                       : annualCarbonKg < 0.5   ? '34,211,238'
+                       : annualCarbonKg < 2     ? '251,191,36'
+                       : '244,63,94';
+
+    const isTop = rank === 0;
+    const cardStyle = isTop
+      ? `background:rgba(13,21,48,.8);border:1px solid rgba(${a},.32);box-shadow:0 0 28px rgba(${a},.1),0 4px 32px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05)`
+      : `background:rgba(13,21,48,.55);border:1px solid rgba(255,255,255,.07);box-shadow:0 4px 32px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04)`;
+
+    return `
+    <div class="card-hover rounded-2xl p-6" style="${cardStyle};border-radius:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;background:${isTop ? `linear-gradient(135deg,rgba(${a},.3),rgba(34,211,238,.28))` : `rgba(${a},.15)`};border:1px solid rgba(${a},.32)">${m.emoji}</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,.9)">${m.name}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.35)">${m.provider}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.28);margin-bottom:6px">Monthly cost</div>
+          <div style="font-size:24px;font-weight:800;line-height:1;background:linear-gradient(135deg,#a855f7,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${costStr}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.22);margin-top:5px">${qpd.toLocaleString()} q/day</div>
+        </div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.28);margin-bottom:6px">Annual CO₂</div>
+          <div style="font-size:24px;font-weight:800;line-height:1;color:rgba(${carbonAccent},1)">${carbonStr}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.22);margin-top:5px">est. output tokens</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// FILTER CONTROLS
+// ─────────────────────────────────────────────────────────────
+function setToggle(toggleEl, active) {
+  const thumb = toggleEl.querySelector('span');
+  toggleEl.setAttribute('aria-checked', active ? 'true' : 'false');
+  if (active) {
+    toggleEl.style.background    = 'rgba(168,85,247,.75)';
+    toggleEl.style.borderColor   = 'rgba(168,85,247,1)';
+    thumb.style.transform        = 'translateX(16px)';
+    thumb.style.background       = '#fff';
+  } else {
+    toggleEl.style.background    = 'rgba(255,255,255,.1)';
+    toggleEl.style.borderColor   = 'rgba(255,255,255,.12)';
+    thumb.style.transform        = 'translateX(0)';
+    thumb.style.background       = 'rgba(255,255,255,.45)';
+  }
+}
+
+// Budget slider
+const budgetSlider = document.getElementById('budgetSlider');
+const budgetLabel  = document.getElementById('budgetLabel');
+budgetSlider.addEventListener('input', () => {
+  filterBudget = parseFloat(budgetSlider.value);
+  budgetLabel.textContent = filterBudget >= 15 ? 'No limit' : `$${filterBudget.toFixed(2)}/1M`;
+  budgetLabel.style.color = filterBudget < 15 ? 'rgba(251,191,36,.95)' : 'rgba(168,85,247,.9)';
+  renderTable(lastRanked, lastTaskType);
+});
+
+// Carbon cap toggle
+document.getElementById('carbonToggleWrap').addEventListener('click', () => {
+  filterCarbon = !filterCarbon;
+  setToggle(document.getElementById('carbonToggle'), filterCarbon);
+  renderTable(lastRanked, lastTaskType);
+});
+
+// Sensitive data toggle
+document.getElementById('sensitiveToggleWrap').addEventListener('click', () => {
+  filterSensitive = !filterSensitive;
+  setToggle(document.getElementById('sensitiveToggle'), filterSensitive);
+  renderTable(lastRanked, lastTaskType);
+});
+
+// Clear all filters
+document.getElementById('filterClearBtn').addEventListener('click', () => {
+  filterBudget    = 15;
+  filterCarbon    = false;
+  filterSensitive = false;
+  budgetSlider.value    = 15;
+  budgetLabel.textContent = 'No limit';
+  budgetLabel.style.color = 'rgba(168,85,247,.9)';
+  setToggle(document.getElementById('carbonToggle'),   false);
+  setToggle(document.getElementById('sensitiveToggle'), false);
+  renderTable(lastRanked, lastTaskType);
+});
+
+// Projector input + presets
+document.getElementById('projQueriesInput').addEventListener('input', renderProjector);
+
+document.querySelectorAll('.proj-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById('projQueriesInput');
+    input.value = btn.dataset.val;
+    renderProjector();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// INIT — default render on page load
+// ─────────────────────────────────────────────────────────────
+analyseTask('');
+renderBenchmarks();
+</script>
+
+</body>
+</html>
