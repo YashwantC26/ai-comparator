@@ -110,8 +110,16 @@
     @keyframes spin { to { transform:rotate(360deg); } }
     .spinner { animation:spin .7s linear infinite; }
 
+    /* skeleton shimmer for side-by-side */
+    @keyframes sbs-shimmer { 0%,100%{opacity:.4} 50%{opacity:.9} }
+    .sbs-skel { animation:sbs-shimmer 1.3s ease-in-out infinite;background:rgba(255,255,255,.06);border-radius:6px; }
+
     /* task badge */
     .task-badge-enter { animation:fadeIn .3s ease forwards; }
+
+    /* table sort cursor */
+    thead th.sortable { cursor:pointer; }
+    thead th.sortable:hover { color:rgba(255,255,255,.6); }
   </style>
 </head>
 <body class="min-h-screen text-white font-sans antialiased relative overflow-x-hidden">
@@ -160,7 +168,7 @@
         Describe what you need — we'll rank every major model by cost, speed, quality, and capability so you ship faster.
       </p>
 
-      <div class="gradient-border rounded-2xl bg-space-800/80 backdrop-blur-sm p-1.5 shadow-card">
+      <div class="gradient-border rounded-2xl bg-space-800/80 backdrop-blur-sm p-1.5 shadow-card relative">
         <div class="flex flex-col sm:flex-row gap-2 p-1">
           <input id="taskInput" type="text"
             placeholder="e.g. Summarise long legal documents with high accuracy..."
@@ -175,6 +183,11 @@
             </span>
             <span id="btnLabel">Analyse Task</span>
           </button>
+        </div>
+
+        <!-- Recent searches dropdown -->
+        <div id="recentSearchesDropdown" class="hidden" style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;background:#0d1530;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.6);max-height:260px;overflow-y:auto">
+          <!-- populated by JS -->
         </div>
 
         <!-- ── Analysis mode toggle ── -->
@@ -226,6 +239,10 @@
           <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
           Share Results
         </button>
+      </div>
+      <!-- Insight badge — shown after 3+ searches -->
+      <div class="mt-2 text-center">
+        <span id="insightBadge" style="display:none;font-size:11px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9999px;padding:4px 14px"></span>
       </div>
     </div>
   </section>
@@ -451,6 +468,42 @@
     </div>
 
     <p class="text-xs mt-4" style="color:rgba(255,255,255,.18)">Assumes ~1,000 blended tokens/query; cost uses input price as proxy. Carbon based on estimated output tokens only.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════ SIDE BY SIDE -->
+  <section id="side-by-side-section" class="relative z-10 max-w-7xl mx-auto px-6 pb-14">
+    <div class="divider mb-14"></div>
+    <div class="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-5 mb-8">
+      <div>
+        <h2 class="text-2xl font-bold tracking-tight mb-1">Try It Side by Side</h2>
+        <p class="text-white/40 text-sm">Run your task against three models and compare their live responses</p>
+      </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row items-stretch gap-3 mb-6 flex-wrap">
+      <select id="sbsModel1" style="flex:1;min-width:160px;background:#0d1530;color:rgba(255,255,255,.82);font-size:12px;font-weight:500;border-radius:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.1);cursor:pointer;outline:none"></select>
+      <select id="sbsModel2" style="flex:1;min-width:160px;background:#0d1530;color:rgba(255,255,255,.82);font-size:12px;font-weight:500;border-radius:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.1);cursor:pointer;outline:none"></select>
+      <select id="sbsModel3" style="flex:1;min-width:160px;background:#0d1530;color:rgba(255,255,255,.82);font-size:12px;font-weight:500;border-radius:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.1);cursor:pointer;outline:none"></select>
+      <button id="sbsRunBtn"
+        class="shrink-0 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2"
+        style="background:linear-gradient(135deg,#a855f7,#22d3ee);box-shadow:0 0 18px rgba(168,85,247,.4);white-space:nowrap">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/>
+        </svg>
+        Run Comparison
+      </button>
+    </div>
+
+    <div id="sbsResults" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <!-- Rendered by JS -->
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ MODEL NEWS -->
+  <section class="relative z-10 max-w-7xl mx-auto px-6 pb-14">
+    <div class="divider mb-14"></div>
+    <h2 class="text-2xl font-bold tracking-tight mb-6">Model News</h2>
+    <div id="news-container"></div>
   </section>
 
   <!-- ═══════════════════════════════════════ FOOTER -->
@@ -747,6 +800,221 @@ const RANK_LABELS = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// TASK HISTORY
+// ─────────────────────────────────────────────────────────────
+const taskHistory = [];
+const MAX_HISTORY = 10;
+
+function escHtmlStr(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function addToHistory(task, taskType) {
+  if (!task.trim()) return;
+  const idx = taskHistory.findIndex(h => h.task === task);
+  if (idx !== -1) taskHistory.splice(idx, 1);
+  taskHistory.unshift({ task, taskType });
+  if (taskHistory.length > MAX_HISTORY) taskHistory.pop();
+  renderRecentSearches();
+  renderInsightBadge();
+}
+
+function renderRecentSearches() {
+  const dropdown = document.getElementById('recentSearchesDropdown');
+  if (!dropdown) return;
+  if (taskHistory.length === 0) { dropdown.classList.add('hidden'); return; }
+  dropdown.innerHTML = taskHistory.map((h, i) => `
+    <button class="recent-search-item w-full text-left px-4 py-2.5 hover:bg-white/5 transition-colors flex items-center gap-2.5"
+            style="color:rgba(255,255,255,.65);border:none;background:none;cursor:pointer" data-idx="${i}">
+      <span style="font-size:11px;opacity:.55;flex-shrink:0">${TASK_META[h.taskType]?.icon || '🔍'}</span>
+      <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtmlStr(h.task)}</span>
+    </button>
+  `).join('');
+}
+
+function renderInsightBadge() {
+  const badge = document.getElementById('insightBadge');
+  if (!badge) return;
+  if (taskHistory.length < 3) { badge.style.display = 'none'; return; }
+  const counts = {};
+  taskHistory.forEach(h => { counts[h.taskType] = (counts[h.taskType] || 0) + 1; });
+  const topType = Object.keys(counts).reduce((a, b) => counts[a] >= counts[b] ? a : b);
+  const meta = TASK_META[topType];
+  if (!meta) return;
+  badge.textContent = `${meta.icon} You mostly run ${meta.label.toLowerCase()} tasks`;
+  badge.style.display = 'inline-block';
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE SORT STATE
+// ─────────────────────────────────────────────────────────────
+let tableSortCol = null;   // th index, or null for default (score) order
+let tableSortDir = 'asc';
+
+function getTableSortVal(item, colIdx) {
+  const m = item.model;
+  switch (colIdx) {
+    case 1: return m.name.toLowerCase();
+    case 2: return m.provider.toLowerCase();
+    case 3: return overallScore(m);
+    case 4: return m.quality;
+    case 5: return m.speed;
+    case 6: {
+      const c = m.context;
+      if (c.endsWith('M')) return parseFloat(c) * 1000000;
+      if (c.endsWith('K')) return parseFloat(c) * 1000;
+      return parseFloat(c) || 0;
+    }
+    case 7: return m.inputPrice;
+    case 8: return m.multimodal ? 1 : 0;
+    case 9: return m.energyKwh;
+    case 10: return m.carbonGco2;
+    case 11: return item.score;
+    default: return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SIDE BY SIDE COMPARISON
+// ─────────────────────────────────────────────────────────────
+function initSideBySide() {
+  const ids = ['sbsModel1', 'sbsModel2', 'sbsModel3'];
+  const selects = ids.map(id => document.getElementById(id));
+  if (!selects[0]) return;
+
+  const optionsHtml = MODELS.map(m =>
+    `<option value="${m.id}">${m.emoji} ${m.name}</option>`
+  ).join('');
+  selects.forEach(sel => { if (sel) sel.innerHTML = optionsHtml; });
+
+  // Default to current top 3
+  const top3 = lastRanked.slice(0, 3);
+  top3.forEach(({ model }, i) => {
+    if (selects[i]) selects[i].value = model.id;
+  });
+
+  const runBtn = document.getElementById('sbsRunBtn');
+  if (runBtn) runBtn.addEventListener('click', runSideBySide);
+}
+
+function renderSbsSkeleton() {
+  const ids = ['sbsModel1', 'sbsModel2', 'sbsModel3'];
+  const models = ids.map(id => {
+    const sel = document.getElementById(id);
+    return sel ? (MODELS.find(m => m.id === sel.value) || null) : null;
+  });
+  const resultsEl = document.getElementById('sbsResults');
+  if (!resultsEl) return;
+
+  resultsEl.innerHTML = models.map(m => {
+    const a = m ? m.accent : '168,85,247';
+    return `
+    <div class="gradient-border rounded-2xl p-5" style="background:rgba(13,21,48,.7)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <div style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(${a},.15);border:1px solid rgba(${a},.25)">${m ? m.emoji : '🤖'}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.85)">${m ? m.name : 'Model'}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.3)">${m ? m.provider : ''}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="sbs-skel" style="height:12px;width:100%"></div>
+        <div class="sbs-skel" style="height:12px;width:88%;animation-delay:.1s"></div>
+        <div class="sbs-skel" style="height:12px;width:78%;animation-delay:.2s"></div>
+        <div class="sbs-skel" style="height:12px;width:83%;animation-delay:.15s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function runSideBySide() {
+  const task = document.getElementById('taskInput').value.trim();
+  const selectedIds = ['sbsModel1', 'sbsModel2', 'sbsModel3'].map(id => {
+    const sel = document.getElementById(id);
+    return sel ? sel.value : null;
+  }).filter(Boolean);
+
+  if (!task) {
+    const input = document.getElementById('taskInput');
+    input.style.boxShadow = '0 0 0 1px rgba(244,63,94,.6), 0 0 16px rgba(244,63,94,.2)';
+    setTimeout(() => { input.style.boxShadow = ''; }, 1500);
+    return;
+  }
+
+  const btn = document.getElementById('sbsRunBtn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.65'; }
+
+  renderSbsSkeleton();
+
+  let results;
+  try {
+    const res = await fetch('/api/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task, models: selectedIds }),
+    });
+    results = res.ok ? await res.json() : null;
+  } catch {
+    results = null;
+  }
+
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+
+  const resultsEl = document.getElementById('sbsResults');
+  if (!resultsEl) return;
+
+  if (!results || !Array.isArray(results)) {
+    resultsEl.innerHTML = selectedIds.map(id =>
+      sbsErrorCard(id, 'Request failed', MODELS.find(m => m.id === id))
+    ).join('');
+    return;
+  }
+
+  resultsEl.innerHTML = results.map(r => {
+    const model = MODELS.find(m => m.id === r.modelId);
+    return r.error
+      ? sbsErrorCard(r.modelId, r.error, model)
+      : sbsResultCard(r.modelId, r.output, model);
+  }).join('');
+}
+
+function sbsResultCard(modelId, output, model) {
+  const a = model ? model.accent : '168,85,247';
+  return `
+  <div class="gradient-border rounded-2xl p-5" style="background:rgba(13,21,48,.7)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(${a},.15);border:1px solid rgba(${a},.25)">${model ? model.emoji : '🤖'}</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.88)">${model ? model.name : modelId}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.32)">${model ? model.provider : ''}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;line-height:1.75;color:rgba(255,255,255,.62);white-space:pre-wrap;word-break:break-word;max-height:280px;overflow-y:auto;scrollbar-width:thin">${escHtmlStr(output || '(no output)')}</div>
+  </div>`;
+}
+
+function sbsErrorCard(modelId, error, model) {
+  const isKeyErr = !!(error && (
+    error.toLowerCase().includes('api key') ||
+    error.toLowerCase().includes('not configured') ||
+    error.toLowerCase().includes('unknown model')
+  ));
+  const a = model ? model.accent : '168,85,247';
+  return `
+  <div class="gradient-border rounded-2xl p-5" style="background:rgba(13,21,48,.6);opacity:.75">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(${a},.08);border:1px solid rgba(${a},.15)">${model ? model.emoji : '🤖'}</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6)">${model ? model.name : modelId}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.25)">${model ? model.provider : ''}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.3);font-style:italic;padding:8px 10px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(255,255,255,.06)">${isKeyErr ? 'API key not configured' : escHtmlStr(error || 'Unknown error')}</div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
 // FILTER STATE
 // ─────────────────────────────────────────────────────────────
 let filterBudget    = 15;      // $/1M input — 15 = no limit
@@ -924,6 +1192,16 @@ function renderTable(ranked, taskType) {
     return true;
   });
 
+  // Apply column sort if active
+  if (tableSortCol !== null) {
+    visible.sort((a, b) => {
+      const va = getTableSortVal(a, tableSortCol);
+      const vb = getTableSortVal(b, tableSortCol);
+      if (typeof va === 'string') return tableSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return tableSortDir === 'asc' ? va - vb : vb - va;
+    });
+  }
+
   // Update clear button + count
   const hasFilter = filterBudget < 15 || filterCarbon || filterSensitive;
   const clearBtn  = document.getElementById('filterClearBtn');
@@ -941,6 +1219,18 @@ function renderTable(ranked, taskType) {
     tbody.innerHTML = `<tr><td colspan="12" style="padding:48px;text-align:center;color:rgba(255,255,255,.3);font-size:13px">No models match the current filters.</td></tr>`;
     return;
   }
+
+  // Update sort arrow indicators on column headers
+  document.querySelectorAll('#leaderboard-section thead th').forEach((th, idx) => {
+    th.querySelector('.sort-arrow')?.remove();
+    if (idx === tableSortCol) {
+      const arrow = document.createElement('span');
+      arrow.className = 'sort-arrow';
+      arrow.textContent = tableSortDir === 'asc' ? ' ↑' : ' ↓';
+      arrow.style.cssText = 'color:rgba(168,85,247,.9);font-size:10px;margin-left:2px;';
+      th.appendChild(arrow);
+    }
+  });
 
   tbody.innerHTML = visible.map(({ model: m, score }, i) => {
     const matchPct    = Math.round((score / maxScore) * 100);
@@ -1223,6 +1513,7 @@ async function triggerAnalysis() {
   }
 
   analyseTask(text, taskType, usedClaude);
+  if (text.trim()) addToHistory(text, taskType);
   btn.disabled   = false;
   icon.innerHTML = ICON_STAR;
   label.textContent = 'Analyse Task';
@@ -1427,6 +1718,76 @@ document.getElementById('shareBtn').addEventListener('click', () => {
   }
 })();
 renderBenchmarks();
+
+// ─────────────────────────────────────────────────────────────
+// TASK INPUT FOCUS — recent searches dropdown
+// ─────────────────────────────────────────────────────────────
+(function initTaskInputHistory() {
+  const input    = document.getElementById('taskInput');
+  const dropdown = document.getElementById('recentSearchesDropdown');
+  if (!input || !dropdown) return;
+
+  input.addEventListener('focus', () => {
+    if (taskHistory.length > 0) {
+      renderRecentSearches();
+      dropdown.classList.remove('hidden');
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => dropdown.classList.add('hidden'), 180);
+  });
+
+  dropdown.addEventListener('mousedown', e => {
+    // Prevent blur from hiding dropdown before the click registers
+    e.preventDefault();
+  });
+
+  dropdown.addEventListener('click', e => {
+    const item = e.target.closest('.recent-search-item');
+    if (!item) return;
+    const idx = parseInt(item.dataset.idx, 10);
+    const h = taskHistory[idx];
+    if (!h) return;
+    input.value = h.task;
+    dropdown.classList.add('hidden');
+    triggerAnalysis();
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────
+// TABLE SORT — header click handlers
+// ─────────────────────────────────────────────────────────────
+(function initTableSort() {
+  const thead = document.querySelector('#leaderboard-section thead tr');
+  if (!thead) return;
+  thead.querySelectorAll('th').forEach((th, i) => {
+    if (i === 0) return; // skip rank (#) column
+    th.classList.add('sortable');
+    th.addEventListener('click', () => {
+      if (tableSortCol === i) {
+        tableSortDir = tableSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        tableSortCol = i;
+        tableSortDir = 'asc';
+      }
+      renderTable(lastRanked, lastTaskType);
+    });
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────
+// SIDE BY SIDE — initialise dropdowns
+// ─────────────────────────────────────────────────────────────
+initSideBySide();
+</script>
+
+<script type="module">
+  import { initAnimations, initThemeToggle } from './animations.js';
+  import { initChangelog } from './changelog.js';
+  initAnimations();
+  initThemeToggle();
+  initChangelog('news-container');
 </script>
 
 </body>
